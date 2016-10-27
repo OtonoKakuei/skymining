@@ -5,8 +5,8 @@
 	<classpathentry kind="lib" path="src/aima-core.jar"/>
 	<classpathentry kind="lib" path="src/jcommander-1.30.jar"/>
 	<classpathentry kind="lib" path="src/ojdbc6.jar"/>
-	<classpathentry combineaccessrules="false" kind="src" path="/BuisnessMethaData"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/JSQLParser"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/AccessArea"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/BusinessMetadata"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

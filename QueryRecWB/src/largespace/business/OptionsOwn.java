@@ -28,6 +28,6 @@ public final class OptionsOwn {
 	@Parameter(names = "-logTable")
 	public String logTable = "QRS_STATEMENTS_PP";
 
-	public Map<String, Table> TABLESWITHKEYS = new TreeMap<String, Table>();
+	public Map<String, Table> tablesWithKeys = new TreeMap<String, Table>();
 
 }

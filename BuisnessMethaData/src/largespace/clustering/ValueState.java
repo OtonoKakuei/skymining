@@ -1,18 +1,18 @@
 package largespace.clustering;
 
 public class ValueState {
-	public long ValuesCount = 0;
-	public long ValuesLessOrEqualCount = 0;
-	public Object Value = null;
+	public long valuesCount = 0;
+	public long valuesLessOrEqualCount = 0;
+	public Object value = null;
 
 	public ValueState(long valueCount, long valuesLessOrEqualCount, Object value) {
-		ValuesCount = valueCount;
-		ValuesLessOrEqualCount = valuesLessOrEqualCount;
-		Value = value;
+		this.valuesCount = valueCount;
+		this.valuesLessOrEqualCount = valuesLessOrEqualCount;
+		this.value = value;
 	}
 
 	public ValueState() {
-		ValuesCount = 0;
+		valuesCount = 0;
 
 	}
 }

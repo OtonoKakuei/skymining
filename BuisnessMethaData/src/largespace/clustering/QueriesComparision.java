@@ -1,9 +1,7 @@
 package largespace.clustering;
 
 import java.io.BufferedWriter;
-import java.math.BigInteger;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -12,25 +10,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 import accessarea.AccessArea;
 import accessarea.AccessAreaExtraction;
 import aima.core.util.datastructure.Pair;
-
-import java.util.SortedMap;
-
-import largespace.business.DataTypes;
 import largespace.business.Operator;
 import largespace.business.Options;
 import largespace.business.RowInfo;
 import largespace.business.Table;
 import largespace.clustering.Column.GlobalColumnType;
-import largespace.clustering.Interval;
 
 public final class QueriesComparision {
 
-	public static Interval GetTntervalForEq(Object val, Column column, Query q, Options opt, Table t) {
+	public static Interval getTntervalForEq(Object val, Column column, Query q, Options opt, Table t) {
 		Interval interval = new Interval();
 
 		if (val.toString().contains(".")) {
@@ -39,23 +33,23 @@ public final class QueriesComparision {
 				return null;
 			// this is JOIN, we can't measure interval, only estimated intervals
 			// row count
-			interval.HasOnlyIntervalsEstimatedRowCount = true;
-			Long estTCount = GetEstimetedRowCountInParentTable(column, t);
-			interval.EstimatedRowCount = GetEstimetedRowCountInJoin(val, column, q, opt, estTCount);
+			interval.hasOnlyIntervalsEstimatedRowCount = true;
+			Long estTCount = getEstimetedRowCountInParentTable(column, t);
+			interval.estimatedRowCount = getEstimetedRowCountInJoin(val, column, q, opt, estTCount);
 		}
-		interval.MinVal = val;
-		interval.MaxVal = val;
-		interval.StricktMinBorder = true;
-		interval.StricktMaxBorder = true;
+		interval.minVal = val;
+		interval.maxVal = val;
+		interval.strictMinBorder = true;
+		interval.strictMaxBorder = true;
 
 		return interval;
 	}
 
-	static HashMap<Integer, List<Column>> GetColumnsByType(ArrayList<String> columnsInQuery1, Options opt) {
+	static HashMap<Integer, List<Column>> getColumnsByType(ArrayList<String> columnsInQuery1, Options opt) {
 		HashMap<Integer, List<Column>> columnsByType = new HashMap<Integer, List<Column>>();
 		for (String column : columnsInQuery1) {
 			Column c = opt.COLUMNS_DISTRIBUTION.get(column);
-			switch (c.AttributeType) {
+			switch (c.attributeType) {
 			case 1:
 				if (!columnsByType.containsKey(1)) {
 					List<Column> clmns = new ArrayList<Column>();
@@ -95,32 +89,32 @@ public final class QueriesComparision {
 		return columnsByType;
 	}
 
-	public static Map<Long, Query> GetSimilarQueriesForQureryAndColumn(Long statId, Long lastUs, Query q1, Table t,
+	public static Map<Long, Query> getSimilarQueriesForQureryAndColumn(Long statId, Long lastUs, Query q1, Table t,
 			Options opt, Connection conn, Map<Long, Query> res, BufferedWriter writer) {
 		try {
 			// Turn use of the cursor on.
 			// Map<String, Map<Integer, List<Predicate>>> columnsListpred1 =
-			// GetPredicateForEachColumn(q1, t, opt);
-			Map<String, List<Interval>> mapColIntervals1 = GetIntervalForQureryAndColumn(q1, t, opt);
+			// getPredicateForEachColumn(q1, t, opt);
+			Map<String, List<Interval>> mapColIntervals1 = getIntervalForQureryAndColumn(q1, t, opt);
 
 			Set<String> columnsInQuery1_ = mapColIntervals1.keySet();
 
 			ArrayList<String> columnsInQuery1 = new ArrayList<String>();
 			columnsInQuery1.addAll(columnsInQuery1_);
-			HashMap<Integer, List<Column>> columnsByType = GetColumnsByType(columnsInQuery1, opt);
+			HashMap<Integer, List<Column>> columnsByType = getColumnsByType(columnsInQuery1, opt);
 
 			for (String column : columnsInQuery1) {
 				List<Interval> intervals = mapColIntervals1.get(column);
 				Column c = opt.COLUMNS_DISTRIBUTION.get(column);
 				Long tmp = new Long(0);
 				if (intervals.size() != 0) {
-					String columnName = c.Name.toLowerCase();
-					Pair<Integer, Integer> attrIdAnddataType = t.Columns.get(columnName);
-					res = GetQueriesWithSimilarIntervals(statId, lastUs, t, c, intervals, conn, attrIdAnddataType, opt,
+					String columnName = c.name.toLowerCase();
+					Pair<Integer, Integer> attrIdAnddataType = t.columns.get(columnName);
+					res = getQueriesWithSimilarIntervals(statId, lastUs, t, c, intervals, conn, attrIdAnddataType, opt,
 							res, writer, columnsByType);
 
 					if (res.size() == 0)
-						res = GetQueriesWithSimilarAttributes(statId, lastUs, t, c, intervals, conn, attrIdAnddataType,
+						res = getQueriesWithSimilarAttributes(statId, lastUs, t, c, intervals, conn, attrIdAnddataType,
 								opt, res, writer, columnsByType);
 				}
 
@@ -135,7 +129,7 @@ public final class QueriesComparision {
 
 	// columnByType consist of List of columns grouped by type (numeric, float
 	// or string)
-	private static Map<Long, Query> GetQueriesWithSimilarIntervalsNumber(Long statId, Long lastUs, Table t, Column c,
+	private static Map<Long, Query> getQueriesWithSimilarIntervalsNumber(Long statId, Long lastUs, Table t, Column c,
 			List<Interval> intervalsInQuery1, Connection conn, Pair<Integer, Integer> attrIdAnddataType,
 			Map<Long, Query> res, String tableName, Options opt, BufferedWriter writer,
 			HashMap<Integer, List<Column>> columnByType) {
@@ -154,15 +148,15 @@ public final class QueriesComparision {
 				if (attrIdAnddataType.getSecond() == 1) {
 					attrIdsSize = columnByType.get(1).size();
 					for (Column c1 : columnByType.get(1)) {
-						theSetOfAttributes = theSetOfAttributes + c1.AttributeId + ",";
+						theSetOfAttributes = theSetOfAttributes + c1.attributeId + ",";
 					}
 					theSetOfAttributes = theSetOfAttributes.substring(0, theSetOfAttributes.length() - 1);
 					Long val = new Long(0);
-					if (intl.MinVal.toString().contains("x"))
-						val = Long.parseLong(intl.MinVal.toString().replace("0x", "").replace("x", ""), 16);
+					if (intl.minVal.toString().contains("x"))
+						val = Long.parseLong(intl.minVal.toString().replace("0x", "").replace("x", ""), 16);
 					else {
 						try {
-							val = Long.parseLong(intl.MinVal.toString());
+							val = Long.parseLong(intl.minVal.toString());
 						} catch (Exception ex) {
 							///// System.out.println("column.Name = " +
 							///// column.Name + "; ex = " + ex);
@@ -170,11 +164,11 @@ public final class QueriesComparision {
 						}
 					}
 					minVal = val.toString();
-					if (intl.MaxVal.toString().contains("x"))
-						val = Long.parseLong(intl.MaxVal.toString().replace("0x", "").replace("x", ""), 16);
+					if (intl.maxVal.toString().contains("x"))
+						val = Long.parseLong(intl.maxVal.toString().replace("0x", "").replace("x", ""), 16);
 					else {
 						try {
-							val = Long.parseLong(intl.MaxVal.toString());
+							val = Long.parseLong(intl.maxVal.toString());
 						} catch (Exception ex) {
 							///// System.out.println("column.Name = " +
 							///// column.Name + "; ex = " + ex);
@@ -187,12 +181,12 @@ public final class QueriesComparision {
 				if (attrIdAnddataType.getSecond() == 2) {
 					attrIdsSize = columnByType.get(2).size();
 					for (Column c1 : columnByType.get(2)) {
-						theSetOfAttributes = theSetOfAttributes + c1.AttributeId + ",";
+						theSetOfAttributes = theSetOfAttributes + c1.attributeId + ",";
 					}
 					theSetOfAttributes = theSetOfAttributes.substring(0, theSetOfAttributes.length() - 1);
 
-					minVal = ((Double) Double.parseDouble(intl.MinVal.toString())).toString();
-					maxVal = ((Double) Double.parseDouble(intl.MaxVal.toString())).toString();
+					minVal = ((Double) Double.parseDouble(intl.minVal.toString())).toString();
+					maxVal = ((Double) Double.parseDouble(intl.maxVal.toString())).toString();
 				}
 
 				// we need to return queries with the same set of filtering
@@ -213,7 +207,7 @@ public final class QueriesComparision {
 				String query = "select min(s.seq) as SEQ, s.STATEMENT, sa.min_val, sa.max_val, us.USERSESSION  "
 						+ "from QRS_STATEMENTS_PP s inner join QRS_USER_SESSIONS_PP us on us.seq = s.seq and us.thetime = s.thetime "
 						+ "inner join (select sa.stat_id as stat_id, sa.min_val, sa.max_val from " + tableName + " sa "
-						+ "where sa.ATTR_ID = " + c.AttributeId + " and (MIN_VAL >= " + minVal + ") and (MAX_VAL <= "
+						+ "where sa.ATTR_ID = " + c.attributeId + " and (MIN_VAL >= " + minVal + ") and (MAX_VAL <= "
 						+ maxVal + ")	) sa on sa.stat_id = s.seq "
 						+ "inner join (select sa.stat_id , count(distinct sa.ATTR_ID) as cattr from " + tableName
 						+ " sa " + "where sa.ATTR_ID in (" + theSetOfAttributes + ") " + "group by sa.stat_id "
@@ -227,18 +221,18 @@ public final class QueriesComparision {
 				rs = st.executeQuery(query);
 
 				Integer n = 100;
-				List<RowInfo> rowInfos = GetResiultsFromResultSet(rs, n);
+				List<RowInfo> rowInfos = getResiultsFromResultSet(rs, n);
 
 				rs.close();
 
-				// write the interval
+				// Write the interval
 				// read the result (not all the results, only top n)
 
 				for (RowInfo ri : rowInfos) {
-					Long seq = ri.Seq;
+					Long seq = ri.seq;
 					if (!res.containsKey(seq)) {
-						String statement = ri.Statement;
-						Long userSession = ri.UserSession;
+						String statement = ri.statement;
+						Long userSession = ri.userSession;
 						try {
 
 							accessArea = extraction.extractAccessArea(statement);
@@ -249,7 +243,7 @@ public final class QueriesComparision {
 							from = from.substring(1, from.length() - 1);
 							where = accessArea.getWhere().toString();
 							Query q = new Query(0, from, where, seq, opt, userSession);
-							q.Statement = statement;
+							q.statement = statement;
 							res.put(seq, q);
 
 						} catch (Exception ex) {
@@ -266,7 +260,7 @@ public final class QueriesComparision {
 		return res;
 	}
 
-	private static Map<Long, Query> GetQueriesWithSimilarAttributesNumber(Long statId, Long lastUs, Table t, Column c,
+	private static Map<Long, Query> getQueriesWithSimilarAttributesNumber(Long statId, Long lastUs, Table t, Column c,
 			List<Interval> intervalsInQuery1, Connection conn, Pair<Integer, Integer> attrIdAnddataType,
 			Map<Long, Query> res, String tableName, Options opt, BufferedWriter writer,
 			HashMap<Integer, List<Column>> columnsByType) {
@@ -283,14 +277,14 @@ public final class QueriesComparision {
 				if (attrIdAnddataType.getSecond() == 2) {
 					attrIdsSize = columnsByType.get(2).size();
 					for (Column c1 : columnsByType.get(2)) {
-						theSetOfAttributes = theSetOfAttributes + c1.AttributeId + ",";
+						theSetOfAttributes = theSetOfAttributes + c1.attributeId + ",";
 					}
 					theSetOfAttributes = theSetOfAttributes.substring(0, theSetOfAttributes.length() - 1);
 				}
 				if (attrIdAnddataType.getSecond() == 1) {
 					attrIdsSize = columnsByType.get(1).size();
 					for (Column c1 : columnsByType.get(1)) {
-						theSetOfAttributes = theSetOfAttributes + c1.AttributeId + ",";
+						theSetOfAttributes = theSetOfAttributes + c1.attributeId + ",";
 					}
 					theSetOfAttributes = theSetOfAttributes.substring(0, theSetOfAttributes.length() - 1);
 				}
@@ -303,7 +297,7 @@ public final class QueriesComparision {
 					query = "select min(s.seq) as SEQ, s.STATEMENT, sa.min_val, sa.max_val, us.USERSESSION  "
 							+ "from QRS_STATEMENTS_PP s inner join QRS_USER_SESSIONS_PP us on us.seq = s.seq and us.thetime = s.thetime "
 							+ "inner join (select sa.stat_id as stat_id, sa.min_val, sa.max_val from " + tableName
-							+ " sa " + "where sa.ATTR_ID = " + c.AttributeId + " ) sa on sa.stat_id = s.seq "
+							+ " sa " + "where sa.ATTR_ID = " + c.attributeId + " ) sa on sa.stat_id = s.seq "
 							+ "inner join (select sa.stat_id , count(distinct sa.ATTR_ID) as cattr from " + tableName
 							+ " sa " + "where sa.ATTR_ID in (" + theSetOfAttributes + ") " + "group by sa.stat_id "
 							+ "having count(distinct sa.ATTR_ID) = " + attrIdsSize + ") q on q.stat_id = s.seq "
@@ -328,18 +322,18 @@ public final class QueriesComparision {
 					rs = st.executeQuery(query);
 
 					Integer n = 10;
-					rowInfos = GetResiultsFromResultSet(rs, n);
+					rowInfos = getResiultsFromResultSet(rs, n);
 				}
 				rs.close();
 
-				// write the interval
+				// Write the interval
 				// read the result (not all the results, only top n)
 
 				for (RowInfo ri : rowInfos) {
-					Long seq = ri.Seq;
+					Long seq = ri.seq;
 					if (!res.containsKey(seq)) {
-						String statement = ri.Statement;
-						Long userSession = ri.UserSession;
+						String statement = ri.statement;
+						Long userSession = ri.userSession;
 						try {
 
 							accessArea = extraction.extractAccessArea(statement);
@@ -350,8 +344,8 @@ public final class QueriesComparision {
 							from = from.substring(1, from.length() - 1);
 							where = accessArea.getWhere().toString();
 							Query q = new Query(0, from, where, seq, opt, userSession);
-							q.Statement = statement;
-							q.HasNotOverlap = true;
+							q.statement = statement;
+							q.hasNotOverlapped = true;
 							res.put(seq, q);
 
 						} catch (Exception ex) {
@@ -368,7 +362,7 @@ public final class QueriesComparision {
 		return res;
 	}
 
-	private static Map<Long, Query> GetQueriesWithSimilarAttributesString(Long statId, Long lastUs, Table t, Column c,
+	private static Map<Long, Query> getQueriesWithSimilarAttributesString(Long statId, Long lastUs, Table t, Column c,
 			List<Interval> intervalsInQuery1, Connection conn, Pair<Integer, Integer> attrIdAnddataType,
 			Map<Long, Query> res, String tableName, Options opt, BufferedWriter writer,
 			HashMap<Integer, List<Column>> columnsByType) {
@@ -383,14 +377,14 @@ public final class QueriesComparision {
 				Integer attrIdsSize = columnsByType.get(3).size();
 				String theSetOfAttributes = "";
 				for (Column c1 : columnsByType.get(3)) {
-					theSetOfAttributes = theSetOfAttributes + c1.AttributeId + ",";
+					theSetOfAttributes = theSetOfAttributes + c1.attributeId + ",";
 				}
 				theSetOfAttributes = theSetOfAttributes.substring(0, theSetOfAttributes.length() - 1);
 
 				String query = "select min(s.seq) as SEQ, s.STATEMENT, sa.min_val, sa.max_val, us.USERSESSION  "
 						+ "from QRS_STATEMENTS_PP s inner join QRS_USER_SESSIONS_PP us on us.seq = s.seq and us.thetime = s.thetime "
 						+ "inner join (select sa.stat_id as stat_id, sa.min_val, sa.max_val from " + tableName + " sa "
-						+ "where sa.ATTR_ID = " + c.AttributeId + " ) sa on sa.stat_id = s.seq "
+						+ "where sa.ATTR_ID = " + c.attributeId + " ) sa on sa.stat_id = s.seq "
 						+ "inner join (select sa.stat_id , count(distinct sa.ATTR_ID) as cattr from " + tableName
 						+ " sa " + "where sa.ATTR_ID in (" + theSetOfAttributes + ") " + "group by sa.stat_id "
 						+ "having count(distinct sa.ATTR_ID) = " + attrIdsSize + ") q on q.stat_id = s.seq "
@@ -415,18 +409,18 @@ public final class QueriesComparision {
 				rs = st.executeQuery(query);
 
 				Integer n = 10;
-				List<RowInfo> rowInfos = GetResiultsFromResultSet(rs, n);
+				List<RowInfo> rowInfos = getResiultsFromResultSet(rs, n);
 
 				rs.close();
 
-				// write the interval
+				// Write the interval
 				// read the result (not all the results, only top n)
 
 				for (RowInfo ri : rowInfos) {
-					Long seq = ri.Seq;
+					Long seq = ri.seq;
 					if (!res.containsKey(seq)) {
-						String statement = ri.Statement;
-						Long userSession = ri.UserSession;
+						String statement = ri.statement;
+						Long userSession = ri.userSession;
 						try {
 
 							accessArea = extraction.extractAccessArea(statement);
@@ -437,8 +431,8 @@ public final class QueriesComparision {
 							from = from.substring(1, from.length() - 1);
 							where = accessArea.getWhere().toString();
 							Query q = new Query(0, from, where, seq, opt, userSession);
-							q.Statement = statement;
-							q.HasNotOverlap = true;
+							q.statement = statement;
+							q.hasNotOverlapped = true;
 							res.put(seq, q);
 
 						} catch (Exception ex) {
@@ -455,7 +449,7 @@ public final class QueriesComparision {
 		return res;
 	}
 
-	private static Map<Long, Query> GetQueriesWithSimilarIntervalsString(Long statId, Long lastUs, Table t, Column c,
+	private static Map<Long, Query> getQueriesWithSimilarIntervalsString(Long statId, Long lastUs, Table t, Column c,
 			List<Interval> intervalsInQuery1, Connection conn, Pair<Integer, Integer> attrIdAnddataType,
 			Map<Long, Query> res, String tableName, Options opt, BufferedWriter writer,
 			HashMap<Integer, List<Column>> columnsByType) {
@@ -470,7 +464,7 @@ public final class QueriesComparision {
 				Integer attrIdsSize = columnsByType.get(3).size();
 				String theSetOfAttributes = "";
 				for (Column c1 : columnsByType.get(3)) {
-					theSetOfAttributes = theSetOfAttributes + c1.AttributeId + ",";
+					theSetOfAttributes = theSetOfAttributes + c1.attributeId + ",";
 				}
 				theSetOfAttributes = theSetOfAttributes.substring(0, theSetOfAttributes.length() - 1);
 
@@ -478,15 +472,15 @@ public final class QueriesComparision {
 				String maxVal = "";
 				// usually for string min_val and max_val are the same
 				if (attrIdAnddataType.getSecond() == 3) {
-					minVal = intl.MinVal.toString();
-					maxVal = intl.MaxVal.toString();
+					minVal = intl.minVal.toString();
+					maxVal = intl.maxVal.toString();
 
 				}
 
 				String query = "select min(s.seq) as SEQ, s.STATEMENT, sa.min_val, sa.max_val, us.USERSESSION  "
 						+ "from QRS_STATEMENTS_PP s inner join QRS_USER_SESSIONS_PP us on us.seq = s.seq and us.thetime = s.thetime "
 						+ "inner join (select sa.stat_id as stat_id, sa.min_val, sa.max_val from " + tableName + " sa "
-						+ "where sa.ATTR_ID = " + c.AttributeId + " and (MIN_VAL = " + minVal + ") and (MAX_VAL = "
+						+ "where sa.ATTR_ID = " + c.attributeId + " and (MIN_VAL = " + minVal + ") and (MAX_VAL = "
 						+ maxVal + ")	) sa on sa.stat_id = s.seq "
 						+ "inner join (select sa.stat_id , count(distinct sa.ATTR_ID) as cattr from " + tableName
 						+ " sa " + "where sa.ATTR_ID in (" + theSetOfAttributes + ") " + "group by sa.stat_id "
@@ -512,18 +506,18 @@ public final class QueriesComparision {
 				rs = st.executeQuery(query);
 
 				Integer n = 10;
-				List<RowInfo> rowInfos = GetResiultsFromResultSet(rs, n);
+				List<RowInfo> rowInfos = getResiultsFromResultSet(rs, n);
 
 				rs.close();
 
-				// write the interval
+				// Write the interval
 				// read the result (not all the results, only top n)
 
 				for (RowInfo ri : rowInfos) {
-					Long seq = ri.Seq;
+					Long seq = ri.seq;
 					if (!res.containsKey(seq)) {
-						String statement = ri.Statement;
-						Long userSession = ri.UserSession;
+						String statement = ri.statement;
+						Long userSession = ri.userSession;
 						try {
 
 							accessArea = extraction.extractAccessArea(statement);
@@ -534,7 +528,7 @@ public final class QueriesComparision {
 							from = from.substring(1, from.length() - 1);
 							where = accessArea.getWhere().toString();
 							Query q = new Query(0, from, where, seq, opt, userSession);
-							q.Statement = statement;
+							q.statement = statement;
 							res.put(seq, q);
 
 						} catch (Exception ex) {
@@ -551,7 +545,7 @@ public final class QueriesComparision {
 		return res;
 	}
 
-	public static List<RowInfo> GetResiultsFromResultSet(ResultSet rs, Integer n) {
+	public static List<RowInfo> getResiultsFromResultSet(ResultSet rs, Integer n) {
 		List<RowInfo> rowInfos = new ArrayList<RowInfo>();
 		Integer i = 0;
 
@@ -569,7 +563,7 @@ public final class QueriesComparision {
 
 	}
 
-	public static Map<Long, Query> GetQueriesWithSimilarIntervals(Long statId, Long lastUs, Table t, Column c,
+	public static Map<Long, Query> getQueriesWithSimilarIntervals(Long statId, Long lastUs, Table t, Column c,
 			List<Interval> intervalsInQuery1, Connection conn, Pair<Integer, Integer> attrIdAnddataType, Options opt,
 			Map<Long, Query> res, BufferedWriter writer, HashMap<Integer, List<Column>> columnByType) {
 		// public final static Integer typeLong = 1;
@@ -579,26 +573,26 @@ public final class QueriesComparision {
 
 		switch (attrIdAnddataType.getSecond()) {
 		case 1:
-			res = GetQueriesWithSimilarIntervalsNumber(statId, lastUs, t, c, intervalsInQuery1, conn, attrIdAnddataType,
+			res = getQueriesWithSimilarIntervalsNumber(statId, lastUs, t, c, intervalsInQuery1, conn, attrIdAnddataType,
 					res, "QRS_STAT_ATTR_NUMBER", opt, writer, columnByType);
 			break;
 		case 2:
-			res = GetQueriesWithSimilarIntervalsNumber(statId, lastUs, t, c, intervalsInQuery1, conn, attrIdAnddataType,
+			res = getQueriesWithSimilarIntervalsNumber(statId, lastUs, t, c, intervalsInQuery1, conn, attrIdAnddataType,
 					res, "QRS_STAT_ATTR_FLOAT", opt, writer, columnByType);
 			break;
 		case 3:
-			res = GetQueriesWithSimilarIntervalsString(statId, lastUs, t, c, intervalsInQuery1, conn, attrIdAnddataType,
+			res = getQueriesWithSimilarIntervalsString(statId, lastUs, t, c, intervalsInQuery1, conn, attrIdAnddataType,
 					res, "QRS_STAT_ATTR_STRING", opt, writer, columnByType);
 			break;
 		case 4:
-			WriteDateInterval(statId, t, c, intervalsInQuery1, conn, attrIdAnddataType);
+			writeDateInterval(statId, t, c, intervalsInQuery1, conn, attrIdAnddataType);
 			break;
 		}
 
 		return res;
 	}
 
-	public static Map<Long, Query> GetQueriesWithSimilarAttributes(Long statId, Long lastUs, Table t, Column c,
+	public static Map<Long, Query> getQueriesWithSimilarAttributes(Long statId, Long lastUs, Table t, Column c,
 			List<Interval> intervalsInQuery1, Connection conn, Pair<Integer, Integer> attrIdAnddataType, Options opt,
 			Map<Long, Query> res, BufferedWriter writer, HashMap<Integer, List<Column>> columnsByType) {
 		// public final static Integer typeLong = 1;
@@ -608,26 +602,26 @@ public final class QueriesComparision {
 
 		switch (attrIdAnddataType.getSecond()) {
 		case 1:
-			res = GetQueriesWithSimilarAttributesNumber(statId, lastUs, t, c, intervalsInQuery1, conn,
+			res = getQueriesWithSimilarAttributesNumber(statId, lastUs, t, c, intervalsInQuery1, conn,
 					attrIdAnddataType, res, "QRS_STAT_ATTR_NUMBER", opt, writer, columnsByType);
 			break;
 		case 2:
-			res = GetQueriesWithSimilarAttributesNumber(statId, lastUs, t, c, intervalsInQuery1, conn,
+			res = getQueriesWithSimilarAttributesNumber(statId, lastUs, t, c, intervalsInQuery1, conn,
 					attrIdAnddataType, res, "QRS_STAT_ATTR_FLOAT", opt, writer, columnsByType);
 			break;
 		case 3:
-			res = GetQueriesWithSimilarAttributesString(statId, lastUs, t, c, intervalsInQuery1, conn,
+			res = getQueriesWithSimilarAttributesString(statId, lastUs, t, c, intervalsInQuery1, conn,
 					attrIdAnddataType, res, "QRS_STAT_ATTR_STRING", opt, writer, columnsByType);
 			break;
 		case 4:
-			WriteDateInterval(statId, t, c, intervalsInQuery1, conn, attrIdAnddataType);
+			writeDateInterval(statId, t, c, intervalsInQuery1, conn, attrIdAnddataType);
 			break;
 		}
 
 		return res;
 	}
 
-	private static Map<Long, String> GetNextQuery(Long userSession, Long seq, Connection conn, BufferedWriter writer) {
+	private static Map<Long, String> getNextQuery(Long userSession, Long seq, Connection conn, BufferedWriter writer) {
 		HashMap<Long, String> res = new HashMap<Long, String>();
 		try {
 			// TODO Auto-generated method stub
@@ -654,9 +648,9 @@ public final class QueriesComparision {
 					+ " and seq <> " + seq + ") order by case when  (qs.seq > " + seq + ") then qs.seq - " + seq
 					+ " else " + seq + "- qs.seq end";
 
-			// writer.write(query + "\n");
+			// Writer.write(query + "\n");
 			rs = st.executeQuery(query);
-			// write the interval
+			// Write the interval
 			// read the result (not all the results, only top n)
 			Integer n = 8;
 			Integer i = 0;
@@ -679,7 +673,7 @@ public final class QueriesComparision {
 		return res;
 	}
 
-	public static Map<Long, Query> GetNextQueriesForUserSessions(Map<Long, Pair<Query, Double>> theNearestQueries,
+	public static Map<Long, Query> getNextQueriesForUserSessions(Map<Long, Pair<Query, Double>> theNearestQueries,
 			Connection conn, BufferedWriter writer, Options opt) {
 		try {
 			Map<Long, Query> res = new TreeMap<Long, Query>();
@@ -693,17 +687,17 @@ public final class QueriesComparision {
 				}
 				Map<Long, String> nextQ = null;
 				try {
-					nextQ = GetNextQuery(theQueryWithDist.getFirst().UserSession, sq, conn, writer);
+					nextQ = getNextQuery(theQueryWithDist.getFirst().userSession, sq, conn, writer);
 				} catch (Exception ex) {
 					System.out.println(ex);
 				}
 				for (Long v : nextQ.keySet()) {
 
-					if (theQueryWithDist.getFirst().HasNotOverlap == true) {
+					if (theQueryWithDist.getFirst().hasNotOverlapped == true) {
 						// it doesn't matter what filtering condition the query
 						// has
 						String statement = nextQ.get(v);
-						Query q = CreateQuery(statement, v, opt, theQueryWithDist.getFirst().UserSession);
+						Query q = CreateQuery(statement, v, opt, theQueryWithDist.getFirst().userSession);
 						if (q != null) {
 							Boolean doNotAdd = false;
 							for (Query cq : res.values()) {
@@ -717,11 +711,11 @@ public final class QueriesComparision {
 					} else {
 						try {
 							String statement = nextQ.get(v);
-							Query q = CreateQuery(statement, v, opt, theQueryWithDist.getFirst().UserSession);
+							Query q = CreateQuery(statement, v, opt, theQueryWithDist.getFirst().userSession);
 							if (q != null) {
 								Boolean doNotAdd = false;
 								for (Query cq : res.values()) {
-									if (cq.Statement.equals(q.Statement)) {
+									if (cq.statement.equals(q.statement)) {
 										doNotAdd = true;
 									}
 								}
@@ -767,7 +761,7 @@ public final class QueriesComparision {
 			if (!from.equals("") || !where.equals("")) {
 				try {
 					q = new Query(0, from, where, seq, opt, userSession);
-					q.Statement = statement;
+					q.statement = statement;
 				} catch (Exception ex) {
 
 				}
@@ -778,11 +772,11 @@ public final class QueriesComparision {
 		}
 	}
 
-	public static Long GetEstimetedRowCountInParentTable(Column column, Table t) {
-		Long res = t.Count;
-		if (column.GlobalColumnType == GlobalColumnType.DistributedFieldWithEmissions) {
-			for (ValueState vs : ((DistributedFieldWithEmissions) column.Distribution).Values.values()) {
-				res = vs.ValuesCount;
+	public static Long getEstimetedRowCountInParentTable(Column column, Table t) {
+		Long res = t.count;
+		if (column.globalColumnType == GlobalColumnType.DistributedFieldWithEmissions) {
+			for (ValueState vs : ((DistributedFieldWithEmissions) column.distribution).values.values()) {
+				res = vs.valuesCount;
 			}
 		}
 		return res;
@@ -796,24 +790,24 @@ public final class QueriesComparision {
 		Table t1 = opt.TABLESWITHCOUNT.get(tableName);
 		if (t1 == null)
 			return false;
-		if (t.Count > t1.Count)
+		if (t.count > t1.count)
 			res = true;
 		return res;
 	}
 
-	public static long GetEstimetedRowCountInJoin(Object val, Column column, Query q, Options opt, Long estTCount) {
+	public static long getEstimetedRowCountInJoin(Object val, Column column, Query q, Options opt, Long estTCount) {
 		Long res = new Long(0);
 		String[] vals = val.toString().split("\\.");
 		String tableName = vals[0];
 		String columnName = vals[1];
 		Table t = opt.TABLESWITHCOUNT.get(tableName);
-		res = t.Count;
+		res = t.count;
 		Column c = opt.COLUMNS_DISTRIBUTION.get(tableName + "." + columnName);
 		if (c == null) {
 			// System.out.println("column = " + columnName + "is null");
 			return 0;
 		} else {
-			Map<String, List<Interval>> mapColIntervals1 = GetIntervalForQureryAndColumn(q, t, opt);
+			Map<String, List<Interval>> mapColIntervals1 = getIntervalForQureryAndColumn(q, t, opt);
 			if (mapColIntervals1 == null)
 				return -1;
 			Set<String> columnsInQuery1_ = mapColIntervals1.keySet();
@@ -825,263 +819,263 @@ public final class QueriesComparision {
 			for (String columnstr : columnsInQuery1) {
 				List<Interval> intervals = mapColIntervals1.get(columnstr);
 				Column c1 = opt.COLUMNS_DISTRIBUTION.get(columnstr);
-				Long tmp = GetEstimatedRowsCount(intervals, c1, t);
+				Long tmp = getEstimatedRowsCount(intervals, c1, t);
 				if (tmp < res)
 					res = tmp;
 			}
 
 		}
-		Double k = ((Long) t.Count).doubleValue() / estTCount;
+		Double k = ((Long) t.count).doubleValue() / estTCount;
 		return Math.round(res * k);
 	}
 
-	public static Interval GetTntervalForLe(Object val, Column column) {
+	public static Interval getTntervalForLe(Object val, Column column) {
 		Interval interval = new Interval();
-		GlobalColumnType columnType = column.GlobalColumnType;
+		GlobalColumnType columnType = column.globalColumnType;
 		switch (columnType) {
 		case DictionaryField: {
-			interval.MinVal = ((ValueState) ((DictionaryField) column.Distribution).Values.values().toArray()[0]).Value;
-			interval.MaxVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = true;
+			interval.minVal = ((ValueState) ((DictionaryField) column.distribution).values.values().toArray()[0]).value;
+			interval.maxVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		case DistributedField: {
-			interval.MinVal = ((DistributedField) column.Distribution).MinValue;
-			interval.MaxVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = true;
+			interval.minVal = ((DistributedField) column.distribution).minValue;
+			interval.maxVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		case DistributedFieldWithEmissions: {
-			interval.MinVal = ((DistributedFieldWithEmissions) column.Distribution).MinValue;
-			for (ValueState emission : ((DistributedFieldWithEmissions) column.Distribution).Values.values()) {
-				Double emissionVal = Double.parseDouble(emission.Value.toString());
-				if ((Double) interval.MinVal > emissionVal)
-					interval.MinVal = emissionVal;
+			interval.minVal = ((DistributedFieldWithEmissions) column.distribution).minValue;
+			for (ValueState emission : ((DistributedFieldWithEmissions) column.distribution).values.values()) {
+				Double emissionVal = Double.parseDouble(emission.value.toString());
+				if ((Double) interval.minVal > emissionVal)
+					interval.minVal = emissionVal;
 			}
-			interval.MaxVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = true;
+			interval.maxVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		case Identificator: {
-			interval.MinVal = ((Identificator) column.Distribution).MinValue;
-			interval.MaxVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = true;
+			interval.minVal = ((Identificator) column.distribution).minValue;
+			interval.maxVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		case NonNumericidentifier: {
-			interval.MaxVal = 1;
-			interval.MinVal = 1;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = true;
+			interval.maxVal = 1;
+			interval.minVal = 1;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		}
 		return interval;
 	}
 
-	public static Interval GetTntervalForLt(Object val, Column column) {
+	public static Interval getTntervalForLt(Object val, Column column) {
 		Interval interval = new Interval();
-		GlobalColumnType columnType = column.GlobalColumnType;
+		GlobalColumnType columnType = column.globalColumnType;
 		switch (columnType) {
 		case DictionaryField: {
-			interval.MinVal = ((ValueState) ((DictionaryField) column.Distribution).Values.values().toArray()[0]).Value;
-			interval.MaxVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = false;
+			interval.minVal = ((ValueState) ((DictionaryField) column.distribution).values.values().toArray()[0]).value;
+			interval.maxVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = false;
 		}
 			break;
 		case DistributedField: {
-			interval.MinVal = ((DistributedField) column.Distribution).MinValue;
-			interval.MaxVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = false;
+			interval.minVal = ((DistributedField) column.distribution).minValue;
+			interval.maxVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = false;
 		}
 			break;
 		case DistributedFieldWithEmissions: {
-			interval.MinVal = ((DistributedFieldWithEmissions) column.Distribution).MinValue;
-			for (ValueState emission : ((DistributedFieldWithEmissions) column.Distribution).Values.values()) {
-				Double emissionVal = Double.parseDouble(emission.Value.toString());
-				if ((Double) interval.MinVal > emissionVal)
-					interval.MinVal = emissionVal;
+			interval.minVal = ((DistributedFieldWithEmissions) column.distribution).minValue;
+			for (ValueState emission : ((DistributedFieldWithEmissions) column.distribution).values.values()) {
+				Double emissionVal = Double.parseDouble(emission.value.toString());
+				if ((Double) interval.minVal > emissionVal)
+					interval.minVal = emissionVal;
 			}
-			interval.MaxVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = false;
+			interval.maxVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = false;
 		}
 			break;
 		case Identificator: {
-			interval.MinVal = ((Identificator) column.Distribution).MinValue;
-			interval.MaxVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = false;
+			interval.minVal = ((Identificator) column.distribution).minValue;
+			interval.maxVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = false;
 		}
 			break;
 		}
 		return interval;
 	}
 
-	public static Interval GetTntervalForGt(Object val, Column column) {
+	public static Interval getTntervalForGt(Object val, Column column) {
 		Interval interval = new Interval();
-		GlobalColumnType columnType = column.GlobalColumnType;
+		GlobalColumnType columnType = column.globalColumnType;
 		switch (columnType) {
 		case DictionaryField: {
-			int valuesCount = ((DictionaryField) column.Distribution).Values.values().size();
-			interval.MaxVal = ((ValueState) ((DictionaryField) column.Distribution).Values.values()
-					.toArray()[valuesCount - 1]).Value;
-			interval.MinVal = val;
-			interval.StricktMinBorder = false;
-			interval.StricktMaxBorder = true;
+			int valuesCount = ((DictionaryField) column.distribution).values.values().size();
+			interval.maxVal = ((ValueState) ((DictionaryField) column.distribution).values.values()
+					.toArray()[valuesCount - 1]).value;
+			interval.minVal = val;
+			interval.strictMinBorder = false;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		case DistributedField: {
-			interval.MaxVal = ((DistributedField) column.Distribution).MaxValue;
-			interval.MinVal = val;
-			interval.StricktMinBorder = false;
-			interval.StricktMaxBorder = true;
+			interval.maxVal = ((DistributedField) column.distribution).maxValue;
+			interval.minVal = val;
+			interval.strictMinBorder = false;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		case DistributedFieldWithEmissions: {
-			interval.MaxVal = ((DistributedFieldWithEmissions) column.Distribution).MaxValue;
-			for (ValueState emission : ((DistributedFieldWithEmissions) column.Distribution).Values.values()) {
-				Double emissionVal = Double.parseDouble(emission.Value.toString());
-				if ((Double) interval.MaxVal < emissionVal)
-					interval.MaxVal = emissionVal;
+			interval.maxVal = ((DistributedFieldWithEmissions) column.distribution).maxValue;
+			for (ValueState emission : ((DistributedFieldWithEmissions) column.distribution).values.values()) {
+				Double emissionVal = Double.parseDouble(emission.value.toString());
+				if ((Double) interval.maxVal < emissionVal)
+					interval.maxVal = emissionVal;
 			}
-			interval.MinVal = val;
-			interval.StricktMinBorder = false;
-			interval.StricktMaxBorder = true;
+			interval.minVal = val;
+			interval.strictMinBorder = false;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		case Identificator: {
-			interval.MaxVal = ((Identificator) column.Distribution).MaxValue;
-			interval.MinVal = val;
-			interval.StricktMinBorder = false;
-			interval.StricktMaxBorder = true;
+			interval.maxVal = ((Identificator) column.distribution).maxValue;
+			interval.minVal = val;
+			interval.strictMinBorder = false;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		}
 		return interval;
 	}
 
-	public static Interval GetTntervalForGe(Object val, Column column) {
+	public static Interval getTntervalForGe(Object val, Column column) {
 		Interval interval = new Interval();
-		GlobalColumnType columnType = column.GlobalColumnType;
+		GlobalColumnType columnType = column.globalColumnType;
 		switch (columnType) {
 		case DictionaryField: {
-			int valuesCount = ((DictionaryField) column.Distribution).Values.values().size();
-			interval.MaxVal = ((ValueState) ((DictionaryField) column.Distribution).Values.values()
-					.toArray()[valuesCount - 1]).Value;
-			interval.MinVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = true;
+			int valuesCount = ((DictionaryField) column.distribution).values.values().size();
+			interval.maxVal = ((ValueState) ((DictionaryField) column.distribution).values.values()
+					.toArray()[valuesCount - 1]).value;
+			interval.minVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		case DistributedField: {
-			interval.MaxVal = ((DistributedField) column.Distribution).MaxValue;
-			interval.MinVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = true;
+			interval.maxVal = ((DistributedField) column.distribution).maxValue;
+			interval.minVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		case DistributedFieldWithEmissions: {
-			interval.MaxVal = ((DistributedFieldWithEmissions) column.Distribution).MaxValue;
-			for (ValueState emission : ((DistributedFieldWithEmissions) column.Distribution).Values.values()) {
-				Double emissionVal = Double.parseDouble(emission.Value.toString());
-				if ((Double) interval.MaxVal < emissionVal)
-					interval.MaxVal = emissionVal;
+			interval.maxVal = ((DistributedFieldWithEmissions) column.distribution).maxValue;
+			for (ValueState emission : ((DistributedFieldWithEmissions) column.distribution).values.values()) {
+				Double emissionVal = Double.parseDouble(emission.value.toString());
+				if ((Double) interval.maxVal < emissionVal)
+					interval.maxVal = emissionVal;
 			}
-			interval.MinVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = true;
+			interval.minVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		case Identificator: {
-			interval.MaxVal = ((Identificator) column.Distribution).MaxValue;
-			interval.MinVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = true;
+			interval.maxVal = ((Identificator) column.distribution).maxValue;
+			interval.minVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		case NonNumericidentifier: {
-			interval.MaxVal = 1;
-			interval.MinVal = 1;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = true;
+			interval.maxVal = 1;
+			interval.minVal = 1;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = true;
 		}
 			break;
 		}
 		return interval;
 	}
 
-	public static List<Interval> GetTntervalForNe(Object val, Column column) {
+	public static List<Interval> getTntervalForNe(Object val, Column column) {
 		List<Interval> intervals = new ArrayList<Interval>();
 
-		GlobalColumnType columnType = column.GlobalColumnType;
+		GlobalColumnType columnType = column.globalColumnType;
 		Interval interval = new Interval();
 		Interval interval2 = new Interval();
 		switch (columnType) {
 		case DictionaryField: {
-			int valuesCount = ((DictionaryField) column.Distribution).Values.values().size();
-			interval.MinVal = ((ValueState) ((DictionaryField) column.Distribution).Values.values().toArray()[0]).Value;
-			interval.MaxVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = false;
+			int valuesCount = ((DictionaryField) column.distribution).values.values().size();
+			interval.minVal = ((ValueState) ((DictionaryField) column.distribution).values.values().toArray()[0]).value;
+			interval.maxVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = false;
 
-			interval2.MinVal = val;
-			interval2.MaxVal = ((ValueState) ((DictionaryField) column.Distribution).Values.values()
-					.toArray()[valuesCount - 1]).Value;
-			interval2.StricktMinBorder = false;
-			interval2.StricktMaxBorder = true;
+			interval2.minVal = val;
+			interval2.maxVal = ((ValueState) ((DictionaryField) column.distribution).values.values()
+					.toArray()[valuesCount - 1]).value;
+			interval2.strictMinBorder = false;
+			interval2.strictMaxBorder = true;
 		}
 			break;
 		case DistributedField: {
-			interval.MinVal = ((DistributedField) column.Distribution).MinValue;
-			interval.MaxVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = false;
+			interval.minVal = ((DistributedField) column.distribution).minValue;
+			interval.maxVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = false;
 
-			interval2.MinVal = val;
-			interval2.MaxVal = ((DistributedField) column.Distribution).MaxValue;
-			interval2.StricktMinBorder = false;
-			interval2.StricktMaxBorder = true;
+			interval2.minVal = val;
+			interval2.maxVal = ((DistributedField) column.distribution).maxValue;
+			interval2.strictMinBorder = false;
+			interval2.strictMaxBorder = true;
 		}
 			break;
 		case DistributedFieldWithEmissions: {
-			interval.MinVal = ((DistributedFieldWithEmissions) column.Distribution).MinValue;
-			for (ValueState emission : ((DistributedFieldWithEmissions) column.Distribution).Values.values()) {
-				Double emissionVal = Double.parseDouble(emission.Value.toString());
-				if ((Double) interval.MinVal > emissionVal)
-					interval.MinVal = emissionVal;
+			interval.minVal = ((DistributedFieldWithEmissions) column.distribution).minValue;
+			for (ValueState emission : ((DistributedFieldWithEmissions) column.distribution).values.values()) {
+				Double emissionVal = Double.parseDouble(emission.value.toString());
+				if ((Double) interval.minVal > emissionVal)
+					interval.minVal = emissionVal;
 			}
-			interval.MaxVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = false;
+			interval.maxVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = false;
 
-			interval2.MaxVal = ((DistributedFieldWithEmissions) column.Distribution).MaxValue;
-			for (ValueState emission : ((DistributedFieldWithEmissions) column.Distribution).Values.values()) {
-				Double emissionVal = Double.parseDouble(emission.Value.toString());
-				if ((Double) interval2.MaxVal < emissionVal)
-					interval2.MaxVal = emission.Value;
+			interval2.maxVal = ((DistributedFieldWithEmissions) column.distribution).maxValue;
+			for (ValueState emission : ((DistributedFieldWithEmissions) column.distribution).values.values()) {
+				Double emissionVal = Double.parseDouble(emission.value.toString());
+				if ((Double) interval2.maxVal < emissionVal)
+					interval2.maxVal = emission.value;
 			}
-			interval2.MinVal = val;
-			interval2.StricktMinBorder = false;
-			interval2.StricktMaxBorder = true;
+			interval2.minVal = val;
+			interval2.strictMinBorder = false;
+			interval2.strictMaxBorder = true;
 		}
 			break;
 		case Identificator: {
-			interval.MinVal = ((Identificator) column.Distribution).MinValue;
-			interval.MaxVal = val;
-			interval.StricktMinBorder = true;
-			interval.StricktMaxBorder = false;
+			interval.minVal = ((Identificator) column.distribution).minValue;
+			interval.maxVal = val;
+			interval.strictMinBorder = true;
+			interval.strictMaxBorder = false;
 
-			interval2.MinVal = val;
-			interval2.MaxVal = ((Identificator) column.Distribution).MaxValue;
-			interval2.StricktMinBorder = false;
-			interval2.StricktMaxBorder = true;
+			interval2.minVal = val;
+			interval2.maxVal = ((Identificator) column.distribution).maxValue;
+			interval2.strictMinBorder = false;
+			interval2.strictMaxBorder = true;
 		}
 			break;
 		}
@@ -1090,67 +1084,67 @@ public final class QueriesComparision {
 		return intervals;
 	}
 
-	public static List<Interval> GetIntervalForPredicate(Operator op, Object val, Column column, Query q, Options opt,
+	public static List<Interval> getIntervalForPredicate(Operator op, Object val, Column column, Query q, Options opt,
 			Table t) {
 		List<Interval> intervals = new ArrayList<Interval>();
 
 		switch (op) {
 		case EQ: {
 
-			Interval interval = GetTntervalForEq(val, column, q, opt, t);
+			Interval interval = getTntervalForEq(val, column, q, opt, t);
 			if (interval != null)
 				intervals.add(interval);
 		}
 			break;
 		case LT: {
-			Interval interval = GetTntervalForLt(val, column);
+			Interval interval = getTntervalForLt(val, column);
 			intervals.add(interval);
 		}
 			break;
 		case GT: {
-			Interval interval = GetTntervalForGt(val, column);
+			Interval interval = getTntervalForGt(val, column);
 			intervals.add(interval);
 		}
 			break;
 		case LE: {
-			Interval interval = GetTntervalForLe(val, column);
+			Interval interval = getTntervalForLe(val, column);
 			intervals.add(interval);
 		}
 			break;
 		case GE: {
-			Interval interval = GetTntervalForGe(val, column);
+			Interval interval = getTntervalForGe(val, column);
 			intervals.add(interval);
 		}
 			break;
 		case NE: {
-			intervals = GetTntervalForNe(val, column);
+			intervals = getTntervalForNe(val, column);
 		}
 			break;
 		}
 		return intervals;
 	}
 
-	public static List<Interval> MergeIntervalsByDisjunctionForDictionaryField(List<Interval> originalIntervals,
+	public static List<Interval> mergeIntervalsByDisjunctionForDictionaryField(List<Interval> originalIntervals,
 			Column column) {
 		List<Interval> resIntervals = new ArrayList<Interval>();
 		SortedMap<String, Point> points = new TreeMap<String, Point>();
 		for (Interval interval : originalIntervals) {
-			if (!interval.HasOnlyIntervalsEstimatedRowCount) {
+			if (!interval.hasOnlyIntervalsEstimatedRowCount) {
 				try {
 					Point p = new Point();
-					p.Value = interval.MinVal;
-					p.IsMinBorder = true;
-					p.IsStrict = interval.StricktMinBorder;
-					points.put((String) interval.MinVal, p);
+					p.value = interval.minVal;
+					p.isMinBorder = true;
+					p.isStrict = interval.strictMinBorder;
+					points.put((String) interval.minVal, p);
 
 					Point p2 = new Point();
-					p2.Value = (String) interval.MaxVal;
-					p2.IsMinBorder = false;
-					p2.IsStrict = interval.StricktMaxBorder;
-					if (points.containsKey((String) interval.MaxVal)) {
+					p2.value = (String) interval.maxVal;
+					p2.isMinBorder = false;
+					p2.isStrict = interval.strictMaxBorder;
+					if (points.containsKey((String) interval.maxVal)) {
 						resIntervals.add(interval);
 					} else {
-						points.put((String) interval.MaxVal, p2);
+						points.put((String) interval.maxVal, p2);
 					}
 				} catch (Exception e) {
 					String exstr = e.toString();
@@ -1159,32 +1153,32 @@ public final class QueriesComparision {
 				resIntervals.add(interval);
 		}
 
-		List<Interval> r = (GetFinalIntervalsForDisjunction(points));
+		List<Interval> r = getFinalIntervalsForDisjunction(points);
 		for (Interval intl : r) {
 			resIntervals.add(intl);
 		}
 		return resIntervals;
 	}
 
-	public static List<Interval> MergeIntervalsByDisjunctionForDistributedField(List<Interval> originalIntervals,
+	public static List<Interval> mergeIntervalsByDisjunctionForDistributedField(List<Interval> originalIntervals,
 			Column column) {
 		List<Interval> resIntervals = new ArrayList<Interval>();
 		SortedMap<Double, Point> points = new TreeMap<Double, Point>();
 		for (Interval interval : originalIntervals) {
-			if (!interval.HasOnlyIntervalsEstimatedRowCount) {
+			if (!interval.hasOnlyIntervalsEstimatedRowCount) {
 				try {
 					Point p = new Point();
-					Double val = Double.parseDouble(interval.MinVal.toString().replace("'", ""));
-					p.Value = val;
-					p.IsMinBorder = true;
-					p.IsStrict = interval.StricktMinBorder;
+					Double val = Double.parseDouble(interval.minVal.toString().replace("'", ""));
+					p.value = val;
+					p.isMinBorder = true;
+					p.isStrict = interval.strictMinBorder;
 					points.put(val, p);
 
 					Point p2 = new Point();
-					val = Double.parseDouble(interval.MaxVal.toString().replace("'", ""));
-					p2.Value = val;
-					p2.IsMinBorder = false;
-					p2.IsStrict = interval.StricktMaxBorder;
+					val = Double.parseDouble(interval.maxVal.toString().replace("'", ""));
+					p2.value = val;
+					p2.isMinBorder = false;
+					p2.isStrict = interval.strictMaxBorder;
 					points.put(val, p2);
 				} catch (Exception ex) {
 					///// System.out.println("column.Name = " + column.Name + ";
@@ -1195,53 +1189,53 @@ public final class QueriesComparision {
 				resIntervals.add(interval);
 		}
 
-		List<Interval> r = (GetFinalIntervalsForDisjunction(points));
+		List<Interval> r = getFinalIntervalsForDisjunction(points);
 		for (Interval intl : r) {
 			resIntervals.add(intl);
 		}
 		return resIntervals;
 	}
 
-	public static List<Interval> MergeIntervalsByDisjunctionForIdentificator(List<Interval> originalIntervals,
+	public static List<Interval> mergeIntervalsByDisjunctionForIdentificator(List<Interval> originalIntervals,
 			Column column) {
 		List<Interval> resIntervals = new ArrayList<Interval>();
 		SortedMap<Long, Point> points = new TreeMap<Long, Point>();
 		for (Interval interval : originalIntervals) {
-			if (!interval.HasOnlyIntervalsEstimatedRowCount) {
+			if (!interval.hasOnlyIntervalsEstimatedRowCount) {
 				Point p = new Point();
 
 				Long val = new Long(0);
-				if (interval.MinVal.toString().contains("x"))
-					val = Long.parseLong(interval.MinVal.toString().replace("0x", "").replace("x", ""), 16);
+				if (interval.minVal.toString().contains("x"))
+					val = Long.parseLong(interval.minVal.toString().replace("0x", "").replace("x", ""), 16);
 				else {
 					try {
-						val = Long.parseLong(interval.MinVal.toString());
+						val = Long.parseLong(interval.minVal.toString());
 					} catch (Exception ex) {
 						///// System.out.println("column.Name = " + column.Name
 						///// + "; ex = " + ex);
 						return null;
 					}
 				}
-				p.Value = val;
-				p.IsMinBorder = true;
-				p.IsStrict = interval.StricktMinBorder;
+				p.value = val;
+				p.isMinBorder = true;
+				p.isStrict = interval.strictMinBorder;
 				points.put(val, p);
 
 				Point p2 = new Point();
-				if (interval.MaxVal.toString().contains("x"))
-					val = Long.parseLong(interval.MaxVal.toString().replace("0x", "").replace("x", ""), 16);
+				if (interval.maxVal.toString().contains("x"))
+					val = Long.parseLong(interval.maxVal.toString().replace("0x", "").replace("x", ""), 16);
 				else {
 					try {
-						val = Long.parseLong(interval.MaxVal.toString());
+						val = Long.parseLong(interval.maxVal.toString());
 					} catch (Exception ex) {
 						// System.out.println("column.Name = " + column.Name +
 						// "; ex = " + ex);
 						return null;
 					}
 				}
-				p2.Value = val;
-				p2.IsMinBorder = false;
-				p2.IsStrict = interval.StricktMaxBorder;
+				p2.value = val;
+				p2.isMinBorder = false;
+				p2.isStrict = interval.strictMaxBorder;
 				if (points.containsKey(val))
 					resIntervals.add(interval);
 				else
@@ -1250,14 +1244,14 @@ public final class QueriesComparision {
 				resIntervals.add(interval);
 		}
 
-		List<Interval> r = (GetFinalIntervalsForDisjunction(points));
+		List<Interval> r = getFinalIntervalsForDisjunction(points);
 		for (Interval intl : r) {
 			resIntervals.add(intl);
 		}
 		return resIntervals;
 	}
 
-	public static <T> List<Interval> GetFinalIntervalsForDisjunction(SortedMap<T, Point> points) {
+	public static <T> List<Interval> getFinalIntervalsForDisjunction(SortedMap<T, Point> points) {
 		List<Interval> resIntervals = new ArrayList<Interval>();
 		Boolean isStart = true;
 		Interval intl = new Interval();
@@ -1266,26 +1260,26 @@ public final class QueriesComparision {
 		for (Point p : points.values()) {
 			if (isStart) {
 				intl = new Interval();
-				intl.MinVal = p.Value;
-				intl.StricktMinBorder = p.IsStrict;
+				intl.minVal = p.value;
+				intl.strictMinBorder = p.isStrict;
 				// iInt++;
 			}
 			isStart = false;
 
-			if (p.IsMinBorder)
+			if (p.isMinBorder)
 				iInt++;
 			else
 				iInt--;
 
 			if (iInt <= 0) {
-				intl.MaxVal = p.Value;
-				intl.StricktMaxBorder = p.IsStrict;
+				intl.maxVal = p.value;
+				intl.strictMaxBorder = p.isStrict;
 
 				Interval intl2 = new Interval();
-				intl2.MaxVal = intl.MaxVal;
-				intl2.MinVal = intl.MinVal;
-				intl2.StricktMaxBorder = intl.StricktMaxBorder;
-				intl2.StricktMinBorder = intl.StricktMinBorder;
+				intl2.maxVal = intl.maxVal;
+				intl2.minVal = intl.minVal;
+				intl2.strictMaxBorder = intl.strictMaxBorder;
+				intl2.strictMinBorder = intl.strictMinBorder;
 				resIntervals.add(intl2);
 				isStart = true;
 			}
@@ -1294,57 +1288,57 @@ public final class QueriesComparision {
 		return resIntervals;
 	}
 
-	public static List<Interval> MergeIntervalsByDisjunction(List<Interval> originalIntervals, Column column) {
+	public static List<Interval> mergeIntervalsByDisjunction(List<Interval> originalIntervals, Column column) {
 		Object points = null;
 		List<Interval> resIntervals = new ArrayList<Interval>();
 		points = new TreeMap<String, Point>();
-		switch (column.GlobalColumnType) {
+		switch (column.globalColumnType) {
 		case DictionaryField: {
-			resIntervals = MergeIntervalsByDisjunctionForDictionaryField(originalIntervals, column);
+			resIntervals = mergeIntervalsByDisjunctionForDictionaryField(originalIntervals, column);
 		}
 			break;
 		case DistributedField: {
-			resIntervals = MergeIntervalsByDisjunctionForDistributedField(originalIntervals, column);
+			resIntervals = mergeIntervalsByDisjunctionForDistributedField(originalIntervals, column);
 		}
 			break;
 		case DistributedFieldWithEmissions: {
-			resIntervals = MergeIntervalsByDisjunctionForDistributedField(originalIntervals, column);
+			resIntervals = mergeIntervalsByDisjunctionForDistributedField(originalIntervals, column);
 		}
 			break;
 		case Identificator: {
-			resIntervals = MergeIntervalsByDisjunctionForIdentificator(originalIntervals, column);
+			resIntervals = mergeIntervalsByDisjunctionForIdentificator(originalIntervals, column);
 		}
 			break;
 		}
 		return resIntervals;
 	}
 
-	public static List<Interval> MergeIntervalsByConjunction(List<List<Interval>> originalIntervals, Column column) {
+	public static List<Interval> mergeIntervalsByConjunction(List<List<Interval>> originalIntervals, Column column) {
 		Object points = null;
 		List<Interval> resIntervals = new ArrayList<Interval>();
 		points = new TreeMap<String, Point>();
-		switch (column.GlobalColumnType) {
+		switch (column.globalColumnType) {
 		case DictionaryField: {
-			resIntervals = MergeIntervalsByConjunctionForDictionaryField(originalIntervals, column);
+			resIntervals = mergeIntervalsByConjunctionForDictionaryField(originalIntervals, column);
 		}
 			break;
 		case DistributedField: {
-			resIntervals = MergeIntervalsByConjunctionForDistributedField(originalIntervals, column);
+			resIntervals = mergeIntervalsByConjunctionForDistributedField(originalIntervals, column);
 		}
 			break;
 		case DistributedFieldWithEmissions: {
-			resIntervals = MergeIntervalsByConjunctionForDistributedField(originalIntervals, column);
+			resIntervals = mergeIntervalsByConjunctionForDistributedField(originalIntervals, column);
 		}
 			break;
 		case Identificator: {
-			resIntervals = MergeIntervalsByConjunctionForIdentificator(originalIntervals, column);
+			resIntervals = mergeIntervalsByConjunctionForIdentificator(originalIntervals, column);
 		}
 			break;
 		}
 		return resIntervals;
 	}
 
-	public static <T> List<Interval> GetFinalIntervalsForConjunction(List<List<Interval>> originalIntervals,
+	public static <T> List<Interval> getFinalIntervalsForConjunction(List<List<Interval>> originalIntervals,
 			SortedMap<T, List<Point>> points) {
 		List<Interval> resIntervals = new ArrayList<Interval>();
 		Interval intl = new Interval();
@@ -1354,37 +1348,37 @@ public final class QueriesComparision {
 		for (List<Point> point : points.values()) {
 			for (Point p : point) {
 
-				if (p.IsMinBorder) {
-					has.add(p.Index.toString());
-					if (intl.MaxVal != null) {
-						if (intl.MaxVal.equals(p.Value))
-							has.add(intl.Index);
+				if (p.isMinBorder) {
+					has.add(p.index.toString());
+					if (intl.maxVal != null) {
+						if (intl.maxVal.equals(p.value))
+							has.add(intl.index);
 					}
 					intl = new Interval();
-					intl.MinVal = p.Value;
-					intl.Index = p.Index.toString();
-					intl.StricktMinBorder = p.IsStrict;
+					intl.minVal = p.value;
+					intl.index = p.index.toString();
+					intl.strictMinBorder = p.isStrict;
 				} else {
-					intl.MaxVal = p.Value;
-					intl.StricktMaxBorder = p.IsStrict;
+					intl.maxVal = p.value;
+					intl.strictMaxBorder = p.isStrict;
 					if (has.size() == needHasCount) {
 
 						Interval intl2 = new Interval();
-						intl2.MaxVal = intl.MaxVal;
-						intl2.MinVal = intl.MinVal;
-						intl2.StricktMaxBorder = intl.StricktMaxBorder;
-						intl2.StricktMinBorder = intl.StricktMinBorder;
+						intl2.maxVal = intl.maxVal;
+						intl2.minVal = intl.minVal;
+						intl2.strictMaxBorder = intl.strictMaxBorder;
+						intl2.strictMinBorder = intl.strictMinBorder;
 						resIntervals.add(intl2);
 
 					}
-					has.remove(p.Index.toString());
+					has.remove(p.index.toString());
 				}
 			}
 		}
 		return resIntervals;
 	}
 
-	public static List<Interval> MergeIntervalsByConjunctionForIdentificator(List<List<Interval>> originalIntervals,
+	public static List<Interval> mergeIntervalsByConjunctionForIdentificator(List<List<Interval>> originalIntervals,
 			Column column) {
 		List<Interval> resIntervals = new ArrayList<Interval>();
 		SortedMap<Long, List<Point>> points = new TreeMap<Long, List<Point>>();
@@ -1392,24 +1386,24 @@ public final class QueriesComparision {
 		int i = 0;
 		for (List<Interval> listIntervals : originalIntervals) {
 			for (Interval interval : listIntervals) {
-				if (!interval.HasOnlyIntervalsEstimatedRowCount) {
+				if (!interval.hasOnlyIntervalsEstimatedRowCount) {
 					Point p = new Point();
 
 					Long minVal = new Long(0);
 					Long maxVal = new Long(0);
 
-					if (interval.MinVal.toString().contains("x")) {
-						minVal = Long.parseLong(interval.MinVal.toString().replace("0x", "").replace("x", ""), 16);
-						maxVal = Long.parseLong(interval.MaxVal.toString().replace("0x", "").replace("x", ""), 16);
+					if (interval.minVal.toString().contains("x")) {
+						minVal = Long.parseLong(interval.minVal.toString().replace("0x", "").replace("x", ""), 16);
+						maxVal = Long.parseLong(interval.maxVal.toString().replace("0x", "").replace("x", ""), 16);
 					} else {
-						minVal = Long.parseLong(interval.MinVal.toString());
-						maxVal = Long.parseLong(interval.MaxVal.toString());
+						minVal = Long.parseLong(interval.minVal.toString());
+						maxVal = Long.parseLong(interval.maxVal.toString());
 					}
 
-					p.Value = minVal;
-					p.IsMinBorder = true;
-					p.IsStrict = interval.StricktMinBorder;
-					p.Index = i;
+					p.value = minVal;
+					p.isMinBorder = true;
+					p.isStrict = interval.strictMinBorder;
+					p.index = i;
 					if (!points.containsKey(minVal)) {
 						List<Point> point = new ArrayList<Point>();
 						point.add(p);
@@ -1418,10 +1412,10 @@ public final class QueriesComparision {
 						points.get((Long) minVal).add(p);
 
 					Point p2 = new Point();
-					p2.Value = (Long) maxVal;
-					p2.IsMinBorder = false;
-					p2.IsStrict = interval.StricktMaxBorder;
-					p2.Index = i;
+					p2.value = (Long) maxVal;
+					p2.isMinBorder = false;
+					p2.isStrict = interval.strictMaxBorder;
+					p2.index = i;
 					if (!points.containsKey(maxVal)) {
 						List<Point> point = new ArrayList<Point>();
 						point.add(p2);
@@ -1433,14 +1427,14 @@ public final class QueriesComparision {
 			i++;
 		}
 
-		List<Interval> r = GetFinalIntervalsForConjunction(originalIntervals, points);
+		List<Interval> r = getFinalIntervalsForConjunction(originalIntervals, points);
 		for (Interval intl : r) {
 			resIntervals.add(intl);
 		}
 		return resIntervals;
 	}
 
-	public static List<Interval> MergeIntervalsByConjunctionForDistributedField(List<List<Interval>> originalIntervals,
+	public static List<Interval> mergeIntervalsByConjunctionForDistributedField(List<List<Interval>> originalIntervals,
 			Column column) {
 		List<Interval> resIntervals = new ArrayList<Interval>();
 		SortedMap<Double, List<Point>> points = new TreeMap<Double, List<Point>>();
@@ -1448,44 +1442,44 @@ public final class QueriesComparision {
 		int i = 0;
 		for (List<Interval> listIntervals : originalIntervals) {
 			for (Interval interval : listIntervals) {
-				if (!interval.HasOnlyIntervalsEstimatedRowCount) {
+				if (!interval.hasOnlyIntervalsEstimatedRowCount) {
 					Point p = new Point();
-					p.Value = (Double) interval.MinVal;
-					p.IsMinBorder = true;
-					p.IsStrict = interval.StricktMinBorder;
-					p.Index = i;
-					if (!points.containsKey(interval.MinVal)) {
+					p.value = (Double) interval.minVal;
+					p.isMinBorder = true;
+					p.isStrict = interval.strictMinBorder;
+					p.index = i;
+					if (!points.containsKey(interval.minVal)) {
 						List<Point> point = new ArrayList<Point>();
 						point.add(p);
-						points.put((Double) interval.MinVal, point);
+						points.put((Double) interval.minVal, point);
 					} else
-						points.get((Double) interval.MinVal).add(p);
+						points.get((Double) interval.minVal).add(p);
 
 					Point p2 = new Point();
-					p2.Value = (Double) interval.MaxVal;
-					p2.IsMinBorder = false;
-					p2.IsStrict = interval.StricktMaxBorder;
-					p2.Index = i;
-					if (!points.containsKey(interval.MaxVal)) {
+					p2.value = (Double) interval.maxVal;
+					p2.isMinBorder = false;
+					p2.isStrict = interval.strictMaxBorder;
+					p2.index = i;
+					if (!points.containsKey(interval.maxVal)) {
 						List<Point> point = new ArrayList<Point>();
 						point.add(p2);
-						points.put((Double) interval.MaxVal, point);
+						points.put((Double) interval.maxVal, point);
 					} else
-						points.get((Double) interval.MaxVal).add(p2);
+						points.get((Double) interval.maxVal).add(p2);
 				}
 
 			}
 			i++;
 		}
 
-		List<Interval> r = GetFinalIntervalsForConjunction(originalIntervals, points);
+		List<Interval> r = getFinalIntervalsForConjunction(originalIntervals, points);
 		for (Interval intl : r) {
 			resIntervals.add(intl);
 		}
 		return resIntervals;
 	}
 
-	public static List<Interval> MergeIntervalsByConjunctionForDictionaryField(List<List<Interval>> originalIntervals,
+	public static List<Interval> mergeIntervalsByConjunctionForDictionaryField(List<List<Interval>> originalIntervals,
 			Column column) {
 		List<Interval> resIntervals = new ArrayList<Interval>();
 		SortedMap<String, List<Point>> points = new TreeMap<String, List<Point>>();
@@ -1493,48 +1487,48 @@ public final class QueriesComparision {
 		int i = 0;
 		for (List<Interval> listIntervals : originalIntervals) {
 			for (Interval interval : listIntervals) {
-				if (!interval.HasOnlyIntervalsEstimatedRowCount) {
+				if (!interval.hasOnlyIntervalsEstimatedRowCount) {
 					Point p = new Point();
-					p.Value = (String) interval.MinVal;
-					p.IsMinBorder = true;
-					p.IsStrict = interval.StricktMinBorder;
-					p.Index = i;
-					if (!points.containsKey(interval.MinVal)) {
+					p.value = (String) interval.minVal;
+					p.isMinBorder = true;
+					p.isStrict = interval.strictMinBorder;
+					p.index = i;
+					if (!points.containsKey(interval.minVal)) {
 						List<Point> point = new ArrayList<Point>();
 						point.add(p);
-						points.put((String) interval.MinVal, point);
+						points.put((String) interval.minVal, point);
 					} else
-						points.get((String) interval.MinVal).add(p);
+						points.get((String) interval.minVal).add(p);
 
 					Point p2 = new Point();
-					p2.Value = (String) interval.MaxVal;
-					p2.IsMinBorder = false;
-					p2.IsStrict = interval.StricktMaxBorder;
-					p2.Index = i;
-					if (!points.containsKey(interval.MaxVal)) {
+					p2.value = (String) interval.maxVal;
+					p2.isMinBorder = false;
+					p2.isStrict = interval.strictMaxBorder;
+					p2.index = i;
+					if (!points.containsKey(interval.maxVal)) {
 						List<Point> point = new ArrayList<Point>();
 						point.add(p2);
-						points.put((String) interval.MaxVal, point);
+						points.put((String) interval.maxVal, point);
 					} else
-						points.get((String) interval.MaxVal).add(p2);
+						points.get((String) interval.maxVal).add(p2);
 				}
 
 			}
 			i++;
 		}
 
-		List<Interval> r = GetFinalIntervalsForConjunction(originalIntervals, points);
+		List<Interval> r = getFinalIntervalsForConjunction(originalIntervals, points);
 		for (Interval intl : r) {
 			resIntervals.add(intl);
 		}
 		return resIntervals;
 	}
 
-	public static void WriteIntervalForQureryAndColumn(Long statId, Query q1, Table t, Options opt, Connection conn) {
+	public static void writeIntervalForQureryAndColumn(Long statId, Query q1, Table t, Options opt, Connection conn) {
 		Map<String, List<Interval>> res = new TreeMap<String, List<Interval>>();
 		// Map<String, Map<Integer, List<Predicate>>> columnsListpred1 =
-		// GetPredicateForEachColumn(q1, t, opt);
-		Map<String, List<Interval>> mapColIntervals1 = GetIntervalForQureryAndColumn(q1, t, opt);
+		// getPredicateForEachColumn(q1, t, opt);
+		Map<String, List<Interval>> mapColIntervals1 = getIntervalForQureryAndColumn(q1, t, opt);
 
 		Set<String> columnsInQuery1_ = mapColIntervals1.keySet();
 
@@ -1573,11 +1567,11 @@ public final class QueriesComparision {
 			Column c = opt.COLUMNS_DISTRIBUTION.get(column);
 			Long tmp = new Long(0);
 			if (intervals.size() != 0) {
-				attributeBitmap = SetAttributeMask(attributeBitmap, c.AttributeId);
+				attributeBitmap = SetAttributeMask(attributeBitmap, c.attributeId);
 
-				String columnName = c.Name.toLowerCase();
-				Pair<Integer, Integer> attrIdAnddataType = t.Columns.get(columnName);
-				WriteIntervalsToDB(statId, t, c, intervals, conn, attrIdAnddataType);
+				String columnName = c.name.toLowerCase();
+				Pair<Integer, Integer> attrIdAnddataType = t.columns.get(columnName);
+				writeIntervalsToDB(statId, t, c, intervals, conn, attrIdAnddataType);
 			}
 
 		}
@@ -1589,7 +1583,7 @@ public final class QueriesComparision {
 				|| (attributeBitmap[15] != 0) || (attributeBitmap[16] != 0) || (attributeBitmap[17] != 0)
 				|| (attributeBitmap[18] != 0) || (attributeBitmap[19] != 0) || (attributeBitmap[20] != 0)
 				|| (attributeBitmap[21] != 0) || (attributeBitmap[22] != 0) || (attributeBitmap[23] != 0))
-			WriteAttributeBitmask(attributeBitmap, conn);
+			writeAttributeBitmask(attributeBitmap, conn);
 		return;// res;
 	}
 
@@ -1600,7 +1594,7 @@ public final class QueriesComparision {
 		return attrMask;
 	}
 
-	public static void WriteIntervalsToDB(Long statId, Table t, Column c, List<Interval> intervalsInQuery1,
+	public static void writeIntervalsToDB(Long statId, Table t, Column c, List<Interval> intervalsInQuery1,
 			Connection conn, Pair<Integer, Integer> attrIdAnddataType) {
 		// public final static Integer typeLong = 1;
 		// public final static Integer typeFloat = 2;
@@ -1609,22 +1603,22 @@ public final class QueriesComparision {
 
 		switch (attrIdAnddataType.getSecond()) {
 		case 1:
-			WriteLongInterval(statId, t, c, intervalsInQuery1, conn, attrIdAnddataType);
+			writeLongInterval(statId, t, c, intervalsInQuery1, conn, attrIdAnddataType);
 			break;
 		case 2:
-			WriteFloatInterval(statId, t, c, intervalsInQuery1, conn, attrIdAnddataType);
+			writeFloatInterval(statId, t, c, intervalsInQuery1, conn, attrIdAnddataType);
 			break;
 		case 3:
-			WriteStringInterval(statId, t, c, intervalsInQuery1, conn, attrIdAnddataType);
+			writeStringInterval(statId, t, c, intervalsInQuery1, conn, attrIdAnddataType);
 			break;
 		case 4:
-			WriteDateInterval(statId, t, c, intervalsInQuery1, conn, attrIdAnddataType);
+			writeDateInterval(statId, t, c, intervalsInQuery1, conn, attrIdAnddataType);
 			break;
 		}
 
 	}
 
-	private static void WriteDateInterval(Long statId, Table t, Column c, List<Interval> intervalsInQuery1,
+	private static void writeDateInterval(Long statId, Table t, Column c, List<Interval> intervalsInQuery1,
 			Connection conn, Pair<Integer, Integer> attrIdAnddataType) {
 		try {
 			// TODO Auto-generated method stub
@@ -1634,13 +1628,13 @@ public final class QueriesComparision {
 			for (Interval intl : intervalsInQuery1) {
 
 				String query = "MERGE INTO QRS_STAT_ATTR_DATETIME t " + "USING (SELECT " + statId + " as STAT_ID, "
-						+ c.AttributeId + " as ATTR_ID  from dual) h "
+						+ c.attributeId + " as ATTR_ID  from dual) h "
 						+ "ON (h.STAT_ID = t.STAT_ID and h.ATTR_ID = t.ATTR_ID) " + "WHEN NOT MATCHED THEN "
-						+ "INSERT (STAT_ID,	ATTR_ID, MIN_VAL, MAX_VAL) VALUES (" + statId + "," + c.AttributeId + ", "
-						+ (String) intl.MinVal + ", " + (String) intl.MaxVal + ")";
+						+ "INSERT (STAT_ID,	ATTR_ID, MIN_VAL, MAX_VAL) VALUES (" + statId + "," + c.attributeId + ", "
+						+ (String) intl.minVal + ", " + (String) intl.maxVal + ")";
 
 				rs = st.executeQuery(query);
-				// write the interval
+				// Write the interval
 
 			}
 		} catch (Exception ex) {
@@ -1648,7 +1642,7 @@ public final class QueriesComparision {
 		}
 	}
 
-	private static void WriteStringInterval(Long statId, Table t, Column c, List<Interval> intervalsInQuery1,
+	private static void writeStringInterval(Long statId, Table t, Column c, List<Interval> intervalsInQuery1,
 			Connection conn, Pair<Integer, Integer> attrIdAnddataType) {
 		try {
 			// TODO Auto-generated method stub
@@ -1657,13 +1651,13 @@ public final class QueriesComparision {
 
 			for (Interval intl : intervalsInQuery1) {
 				String query = "MERGE INTO QRS_STAT_ATTR_STRING t " + "USING (SELECT " + statId + " as STAT_ID, "
-						+ c.AttributeId + " as ATTR_ID from dual) h "
+						+ c.attributeId + " as ATTR_ID from dual) h "
 						+ "ON (h.STAT_ID = t.STAT_ID and h.ATTR_ID = t.ATTR_ID) " + "WHEN NOT MATCHED THEN "
-						+ "INSERT (STAT_ID,	ATTR_ID, MIN_VAL, MAX_VAL) VALUES (" + statId + "," + c.AttributeId + ", "
-						+ (String) intl.MinVal + ", " + (String) intl.MaxVal + ")";
+						+ "INSERT (STAT_ID,	ATTR_ID, MIN_VAL, MAX_VAL) VALUES (" + statId + "," + c.attributeId + ", "
+						+ (String) intl.minVal + ", " + (String) intl.maxVal + ")";
 
 				rs = st.executeQuery(query);
-				// write the interval
+				// Write the interval
 
 			}
 		} catch (Exception ex) {
@@ -1671,7 +1665,7 @@ public final class QueriesComparision {
 		}
 	}
 
-	private static void WriteAttributeBitmask(Long[] attributeMask, Connection conn) {
+	private static void writeAttributeBitmask(Long[] attributeMask, Connection conn) {
 		try {
 			// TODO Auto-generated method stub
 			Statement st = conn.createStatement();
@@ -1708,14 +1702,14 @@ public final class QueriesComparision {
 					+ "NVL((SELECT MAX(ATTR_MASK_ID) + 1 FROM QRS_ATTR_OCCURANCE),1))";
 
 			rs = st.executeQuery(query);
-			// write the interval
+			// Write the interval
 
 		} catch (Exception ex) {
 			System.out.println(ex);
 		}
 	}
 
-	private static void WriteFloatInterval(Long statId, Table t, Column c, List<Interval> intervalsInQuery1,
+	private static void writeFloatInterval(Long statId, Table t, Column c, List<Interval> intervalsInQuery1,
 			Connection conn, Pair<Integer, Integer> attrIdAnddataType) {
 		try {
 			// TODO Auto-generated method stub
@@ -1724,14 +1718,14 @@ public final class QueriesComparision {
 
 			for (Interval intl : intervalsInQuery1) {
 				String query = "MERGE INTO QRS_STAT_ATTR_FLOAT t " + "USING (SELECT " + statId + " as STAT_ID, "
-						+ c.AttributeId + " as ATTR_ID from dual) h "
+						+ c.attributeId + " as ATTR_ID from dual) h "
 						+ "ON (h.STAT_ID = t.STAT_ID and h.ATTR_ID = t.ATTR_ID) " + "WHEN NOT MATCHED THEN "
-						+ "INSERT (STAT_ID,	ATTR_ID, MIN_VAL, MAX_VAL) VALUES (" + statId + "," + c.AttributeId + ", "
-						+ Double.parseDouble(intl.MinVal.toString()) + ", " + Double.parseDouble(intl.MaxVal.toString())
+						+ "INSERT (STAT_ID,	ATTR_ID, MIN_VAL, MAX_VAL) VALUES (" + statId + "," + c.attributeId + ", "
+						+ Double.parseDouble(intl.minVal.toString()) + ", " + Double.parseDouble(intl.maxVal.toString())
 						+ ")";
 
 				rs = st.executeQuery(query);
-				// write the interval
+				// Write the interval
 
 			}
 		} catch (Exception ex) {
@@ -1739,7 +1733,7 @@ public final class QueriesComparision {
 		}
 	}
 
-	private static void WriteLongInterval(Long statId, Table t, Column c, List<Interval> intervalsInQuery1,
+	private static void writeLongInterval(Long statId, Table t, Column c, List<Interval> intervalsInQuery1,
 			Connection conn, Pair<Integer, Integer> attrIdAnddataType) {
 		try {
 			// TODO Auto-generated method stub
@@ -1749,26 +1743,26 @@ public final class QueriesComparision {
 			for (Interval intl : intervalsInQuery1) {
 				Long minVal = new Long(0);
 				Long maxVal = new Long(0);
-				if (intl.MinVal.toString().contains(".")) {
-					minVal = (long) Double.parseDouble(intl.MinVal.toString());
-					maxVal = (long) Double.parseDouble(intl.MaxVal.toString());
+				if (intl.minVal.toString().contains(".")) {
+					minVal = (long) Double.parseDouble(intl.minVal.toString());
+					maxVal = (long) Double.parseDouble(intl.maxVal.toString());
 				} else {
-					if (intl.MinVal.toString().contains("x")) {
-						minVal = Long.parseLong(intl.MinVal.toString().replace("0x", "").replace("x", ""), 16);
-						maxVal = Long.parseLong(intl.MaxVal.toString().replace("0x", "").replace("x", ""), 16);
+					if (intl.minVal.toString().contains("x")) {
+						minVal = Long.parseLong(intl.minVal.toString().replace("0x", "").replace("x", ""), 16);
+						maxVal = Long.parseLong(intl.maxVal.toString().replace("0x", "").replace("x", ""), 16);
 					} else {
-						minVal = Long.parseLong(intl.MinVal.toString());
-						maxVal = Long.parseLong(intl.MaxVal.toString());
+						minVal = Long.parseLong(intl.minVal.toString());
+						maxVal = Long.parseLong(intl.maxVal.toString());
 					}
 				}
 				String query = "MERGE INTO QRS_STAT_ATTR_NUMBER t " + "USING (SELECT " + statId + " as STAT_ID, "
-						+ c.AttributeId + " as ATTR_ID  from dual) h "
+						+ c.attributeId + " as ATTR_ID  from dual) h "
 						+ "ON (h.STAT_ID = t.STAT_ID and h.ATTR_ID = t.ATTR_ID) " + "WHEN NOT MATCHED THEN "
-						+ "INSERT (STAT_ID,	ATTR_ID, MIN_VAL, MAX_VAL) VALUES (" + statId + "," + c.AttributeId + ", "
+						+ "INSERT (STAT_ID,	ATTR_ID, MIN_VAL, MAX_VAL) VALUES (" + statId + "," + c.attributeId + ", "
 						+ minVal + ", " + maxVal + ")";
 
 				rs = st.executeQuery(query);
-				// write the interval
+				// Write the interval
 
 			}
 		} catch (Exception ex) {
@@ -1776,9 +1770,9 @@ public final class QueriesComparision {
 		}
 	}
 
-	public static Map<String, List<Interval>> GetIntervalForQureryAndColumn(Query q1, Table t, Options opt) {
+	public static Map<String, List<Interval>> getIntervalForQureryAndColumn(Query q1, Table t, Options opt) {
 		Map<String, List<Interval>> res = new TreeMap<String, List<Interval>>();
-		Map<String, Map<Integer, List<Predicate>>> columnsListpred1 = GetPredicateForEachColumn(q1, t, opt);
+		Map<String, Map<Integer, List<Predicate>>> columnsListpred1 = getPredicateForEachColumn(q1, t, opt);
 
 		for (Map<Integer, List<Predicate>> columnWithPredicate : columnsListpred1.values()) {
 			Column c = null;
@@ -1798,7 +1792,7 @@ public final class QueriesComparision {
 						// null");
 						return null;
 					} else {
-						List<Interval> tmp = GetIntervalForPredicate(op, val, c, q1, opt, t);
+						List<Interval> tmp = getIntervalForPredicate(op, val, c, q1, opt, t);
 						for (Interval intl : tmp) {
 							intervals.add(intl);
 						}
@@ -1806,7 +1800,7 @@ public final class QueriesComparision {
 				}
 				if (c != null) {
 
-					List<Interval> intervals2 = MergeIntervalsByDisjunction(intervals, c);
+					List<Interval> intervals2 = mergeIntervalsByDisjunction(intervals, c);
 					if (intervals2 == null)
 						return null;
 					intervalsAll.add(intervals2);
@@ -1814,22 +1808,22 @@ public final class QueriesComparision {
 
 			}
 			if (c != null) {
-				List<Interval> intervalsInQuery1 = MergeIntervalsByConjunction(intervalsAll, c);
+				List<Interval> intervalsInQuery1 = mergeIntervalsByConjunction(intervalsAll, c);
 
-				res.put(c.Name, intervalsInQuery1);
+				res.put(c.name, intervalsInQuery1);
 			}
 		}
 		return res;
 	}
 
-	public static long GetEstimatedRowsOverall(Query q1, Query q2, Table t, Options opt) {
+	public static long getEstimatedRowsOverall(Query q1, Query q2, Table t, Options opt) {
 		if (t == null)
 			return 0;
-		long res1 = t.Count;
-		long res2 = t.Count;
+		long res1 = t.count;
+		long res2 = t.count;
 
-		Map<String, List<Interval>> mapColIntervals1 = GetIntervalForQureryAndColumn(q1, t, opt);
-		Map<String, List<Interval>> mapColIntervals2 = GetIntervalForQureryAndColumn(q2, t, opt);
+		Map<String, List<Interval>> mapColIntervals1 = getIntervalForQureryAndColumn(q1, t, opt);
+		Map<String, List<Interval>> mapColIntervals2 = getIntervalForQureryAndColumn(q2, t, opt);
 
 		if ((mapColIntervals1 == null) || (mapColIntervals2 == null))
 			return -1;
@@ -1847,7 +1841,7 @@ public final class QueriesComparision {
 			Column c = opt.COLUMNS_DISTRIBUTION.get(column);
 			Long tmp = new Long(0);
 			if (intervals.size() != 0)
-				tmp = GetEstimatedRowsCount(intervals, c, t);
+				tmp = getEstimatedRowsCount(intervals, c, t);
 			if (tmp < res1)
 				res1 = tmp;
 		}
@@ -1857,7 +1851,7 @@ public final class QueriesComparision {
 			Column c = opt.COLUMNS_DISTRIBUTION.get(column);
 			Long tmp = new Long(0);
 			if (intervals.size() != 0)
-				tmp = GetEstimatedRowsCount(intervals, c, t);
+				tmp = getEstimatedRowsCount(intervals, c, t);
 			if (tmp < res2)
 				res2 = tmp;
 		}
@@ -1865,13 +1859,13 @@ public final class QueriesComparision {
 		return res1 + res2;
 	}
 
-	public static Long GetEstimatedRowsOverlap(Query q1, Query q2, Table t, Options opt) {
+	public static Long getEstimatedRowsOverlap(Query q1, Query q2, Table t, Options opt) {
 		if (t == null)
 			return new Long(0);
-		Long res = t.Count;
+		Long res = t.count;
 		Double result = new Double(0);
-		Map<String, List<Interval>> mapColIntervals1 = GetIntervalForQureryAndColumn(q1, t, opt);
-		Map<String, List<Interval>> mapColIntervals2 = GetIntervalForQureryAndColumn(q2, t, opt);
+		Map<String, List<Interval>> mapColIntervals1 = getIntervalForQureryAndColumn(q1, t, opt);
+		Map<String, List<Interval>> mapColIntervals2 = getIntervalForQureryAndColumn(q2, t, opt);
 
 		if ((mapColIntervals1 == null) || (mapColIntervals2 == null))
 			return new Long(0);
@@ -1895,7 +1889,7 @@ public final class QueriesComparision {
 				intervalAll.add(intervals1);
 				intervalAll.add(intervals2);
 				Column c = opt.COLUMNS_DISTRIBUTION.get(column);
-				List<Interval> intervalsall = MergeIntervalsByConjunction(intervalAll, c);
+				List<Interval> intervalsall = mergeIntervalsByConjunction(intervalAll, c);
 				mapColIntervalsAll.put(column, intervalsall);
 			} else {
 				List<Interval> intervals1 = mapColIntervals1.get(column);
@@ -1924,13 +1918,13 @@ public final class QueriesComparision {
 			Column c = opt.COLUMNS_DISTRIBUTION.get(column);
 			Long tmp = new Long(0);
 			if (intervals.size() != 0)
-				tmp = GetEstimatedRowsCount(intervals, c, t);
+				tmp = getEstimatedRowsCount(intervals, c, t);
 			if (tmp < res)
 				res = tmp;
 		}
-		result = res.doubleValue() / t.Count;
+		result = res.doubleValue() / t.count;
 
-		Long res1 = t.Count;
+		Long res1 = t.count;
 		Set<String> columnsInQueryOnlyIn1_ = mapColIntervalsOnlyIn1.keySet();
 
 		ArrayList<String> columnsInQueryOnlyIn1 = new ArrayList<String>();
@@ -1940,12 +1934,12 @@ public final class QueriesComparision {
 			Column c = opt.COLUMNS_DISTRIBUTION.get(column);
 			Long tmp = new Long(0);
 			if (intervals.size() != 0)
-				tmp = GetEstimatedRowsCount(intervals, c, t);
+				tmp = getEstimatedRowsCount(intervals, c, t);
 			if (tmp < res1)
 				res1 = tmp;
 		}
 
-		Long res2 = t.Count;
+		Long res2 = t.count;
 		Set<String> columnsInQueryOnlyIn2_ = mapColIntervalsOnlyIn2.keySet();
 
 		ArrayList<String> columnsInQueryOnlyIn2 = new ArrayList<String>();
@@ -1955,84 +1949,84 @@ public final class QueriesComparision {
 			Column c = opt.COLUMNS_DISTRIBUTION.get(column);
 			Long tmp = new Long(0);
 			if (intervals.size() != 0)
-				tmp = GetEstimatedRowsCount(intervals, c, t);
+				tmp = getEstimatedRowsCount(intervals, c, t);
 			if (tmp < res2)
 				res2 = tmp;
 		}
 
-		Double result2 = (res1.doubleValue() * res2.doubleValue()) / (t.Count * t.Count);
+		Double result2 = (res1.doubleValue() * res2.doubleValue()) / (t.count * t.count);
 		if (result2 < result)
 			result = result2;
-		Long finalRes = Math.round(result * t.Count);
+		Long finalRes = Math.round(result * t.count);
 		return finalRes;
 	}
 
-	public static Long GetEstimatedRowsCount(List<Interval> intervals, Column column, Table t) {
+	public static Long getEstimatedRowsCount(List<Interval> intervals, Column column, Table t) {
 		Long res = new Long(0);
-		Long res2 = t.Count;
+		Long res2 = t.count;
 		// TODO: implementation
 		for (Interval interval : intervals) {
-			if (!interval.HasOnlyIntervalsEstimatedRowCount)
+			if (!interval.hasOnlyIntervalsEstimatedRowCount)
 				// calculate the estimated row count inside the interval
-				res = res + GetEstimatedRowsCountInsideTheInterval(interval, column, t);
+				res = res + getEstimatedRowsCountInsideTheInterval(interval, column, t);
 			else {
-				Long r = GetEstimatedRowsCountInsideTheInterval(interval, column, t);
+				Long r = getEstimatedRowsCountInsideTheInterval(interval, column, t);
 				if (res2 > r)
 					res2 = r;
 			}
 		}
 		if (res == 0)
-			res = t.Count;
+			res = t.count;
 		return res < res2 ? res : res2;
 	}
 
-	public static Long GetEstimatedRowsCountInsideTheIntervalForDictionaryField(Interval interval, Column column,
+	public static Long getEstimatedRowsCountInsideTheIntervalForDictionaryField(Interval interval, Column column,
 			Table t) {
 		Long res = new Long(0);
-		String minVal = interval.MinVal.toString().replace("'", "");
-		String maxVal = interval.MaxVal.toString().replace("'", "");
+		String minVal = interval.minVal.toString().replace("'", "");
+		String maxVal = interval.maxVal.toString().replace("'", "");
 
-		Boolean stricktMinBorder = interval.StricktMinBorder;
-		Boolean stricktMaxBorder = interval.StricktMaxBorder;
+		Boolean stricktMinBorder = interval.strictMinBorder;
+		Boolean stricktMaxBorder = interval.strictMaxBorder;
 
-		DictionaryField dictionaryField = (DictionaryField) column.Distribution;
-		ValueState minValueState = dictionaryField.Values.get(minVal);
-		ValueState maxValueState = dictionaryField.Values.get(maxVal);
+		DictionaryField dictionaryField = (DictionaryField) column.distribution;
+		ValueState minValueState = dictionaryField.values.get(minVal);
+		ValueState maxValueState = dictionaryField.values.get(maxVal);
 
 		if (minVal.equals(maxVal)) {
 			if (minValueState == null) {
 				res = new Long(0);
 			} else
-				res = minValueState.ValuesCount;
+				res = minValueState.valuesCount;
 		} else {
 			Long minValCount = new Long(0);
 			Long maxValCount = new Long(0);
 			if (stricktMinBorder)
-				minValCount = minValueState.ValuesLessOrEqualCount - minValueState.ValuesCount;
+				minValCount = minValueState.valuesLessOrEqualCount - minValueState.valuesCount;
 			else
-				minValCount = minValueState.ValuesLessOrEqualCount;
+				minValCount = minValueState.valuesLessOrEqualCount;
 
 			if (stricktMaxBorder)
-				maxValCount = maxValueState.ValuesLessOrEqualCount;
+				maxValCount = maxValueState.valuesLessOrEqualCount;
 			else
-				maxValCount = maxValueState.ValuesLessOrEqualCount - maxValueState.ValuesCount;
+				maxValCount = maxValueState.valuesLessOrEqualCount - maxValueState.valuesCount;
 			res = Math.abs(maxValCount - minValCount);
 
 		}
 		return res;
 	}
 
-	public static Long GetEstimatedRowsCountInsideTheIntervalForDistributedField(Interval interval, Column column,
+	public static Long getEstimatedRowsCountInsideTheIntervalForDistributedField(Interval interval, Column column,
 			Table t) {
 		Long res = new Long(0);
-		if (interval.HasOnlyIntervalsEstimatedRowCount)
-			return interval.EstimatedRowCount;
-		Double minVal = (Double) interval.MinVal;
-		Double maxVal = (Double) interval.MaxVal;
+		if (interval.hasOnlyIntervalsEstimatedRowCount)
+			return interval.estimatedRowCount;
+		Double minVal = (Double) interval.minVal;
+		Double maxVal = (Double) interval.maxVal;
 
-		DistributedField distributedField = (DistributedField) column.Distribution;
-		Double minValueState = distributedField.MinValue;
-		Double maxValueState = distributedField.MaxValue;
+		DistributedField distributedField = (DistributedField) column.distribution;
+		Double minValueState = distributedField.minValue;
+		Double maxValueState = distributedField.maxValue;
 
 		if (minVal.equals(maxVal)) {
 			// this is a place to discuss
@@ -2044,25 +2038,25 @@ public final class QueriesComparision {
 			Double columnWidth = (Double) Math.abs(maxValueState - minValueState);
 			if (columnWidth == 0)
 				columnWidth = (double) 1;
-			res = Math.round(t.Count * intervalWidth / columnWidth);
+			res = Math.round(t.count * intervalWidth / columnWidth);
 		}
 		return res;
 	}
 
-	public static Long GetEstimatedRowsCountInsideTheIntervalForDistributedFieldWithEmissions(Interval interval,
+	public static Long getEstimatedRowsCountInsideTheIntervalForDistributedFieldWithEmissions(Interval interval,
 			Column column, Table t) {
 		Long res = new Long(0);
-		if (interval.HasOnlyIntervalsEstimatedRowCount)
-			return interval.EstimatedRowCount;
-		Double minVal = (Double) interval.MinVal;
-		Double maxVal = (Double) interval.MaxVal;
+		if (interval.hasOnlyIntervalsEstimatedRowCount)
+			return interval.estimatedRowCount;
+		Double minVal = (Double) interval.minVal;
+		Double maxVal = (Double) interval.maxVal;
 
-		Boolean stricktMinBorder = interval.StricktMinBorder;
-		Boolean stricktMaxBorder = interval.StricktMaxBorder;
+		Boolean stricktMinBorder = interval.strictMinBorder;
+		Boolean stricktMaxBorder = interval.strictMaxBorder;
 
-		DistributedFieldWithEmissions distributedFieldWithEmissions = (DistributedFieldWithEmissions) column.Distribution;
-		Double minValueState = distributedFieldWithEmissions.MinValue;
-		Double maxValueState = distributedFieldWithEmissions.MaxValue;
+		DistributedFieldWithEmissions distributedFieldWithEmissions = (DistributedFieldWithEmissions) column.distribution;
+		Double minValueState = distributedFieldWithEmissions.minValue;
+		Double maxValueState = distributedFieldWithEmissions.maxValue;
 
 		if (minVal.equals(maxVal)) {
 			// this is a place to discuss
@@ -2074,42 +2068,42 @@ public final class QueriesComparision {
 			Double columnWidth = (Double) Math.abs(maxValueState - minValueState);
 			if (columnWidth == 0)
 				columnWidth = (double) 1;
-			res = Math.round(t.Count * intervalWidth / columnWidth);
+			res = Math.round(t.count * intervalWidth / columnWidth);
 		}
 
-		for (ValueState emission : distributedFieldWithEmissions.Values.values()) {
-			Double emissionVal = Double.parseDouble(emission.Value.toString());
+		for (ValueState emission : distributedFieldWithEmissions.values.values()) {
+			Double emissionVal = Double.parseDouble(emission.value.toString());
 			if (stricktMinBorder && stricktMaxBorder) {
 				if ((emissionVal >= minVal) && (emissionVal <= maxVal))
-					res = res + emission.ValuesCount;
+					res = res + emission.valuesCount;
 			}
 			if (stricktMinBorder && !stricktMaxBorder) {
 				if ((emissionVal >= minVal) && (emissionVal < maxVal))
-					res = res + emission.ValuesCount;
+					res = res + emission.valuesCount;
 			}
 			if (!stricktMinBorder && stricktMaxBorder) {
 				if ((emissionVal > minVal) && (emissionVal <= maxVal))
-					res = res + emission.ValuesCount;
+					res = res + emission.valuesCount;
 			}
 			if (!stricktMinBorder && !stricktMaxBorder) {
 				if ((emissionVal >= minVal) && (emissionVal < maxVal))
-					res = res + emission.ValuesCount;
+					res = res + emission.valuesCount;
 			}
 		}
 		return res;
 	}
 
-	public static Long GetEstimatedRowsCountInsideTheIntervalForIdentificator(Interval interval, Column column,
+	public static Long getEstimatedRowsCountInsideTheIntervalForIdentificator(Interval interval, Column column,
 			Table t) {
 		Long res = new Long(0);
-		if (interval.HasOnlyIntervalsEstimatedRowCount)
-			return interval.EstimatedRowCount;
-		Long minVal = (Long) interval.MinVal;
-		Long maxVal = (Long) interval.MaxVal;
+		if (interval.hasOnlyIntervalsEstimatedRowCount)
+			return interval.estimatedRowCount;
+		Long minVal = (Long) interval.minVal;
+		Long maxVal = (Long) interval.maxVal;
 
-		Identificator identificatorField = (Identificator) column.Distribution;
-		Long minValueState = identificatorField.MinValue;
-		Long maxValueState = identificatorField.MaxValue;
+		Identificator identificatorField = (Identificator) column.distribution;
+		Long minValueState = identificatorField.minValue;
+		Long maxValueState = identificatorField.maxValue;
 
 		if (minVal.equals(maxVal)) {
 			res = new Long(1);
@@ -2120,29 +2114,29 @@ public final class QueriesComparision {
 			Long columnWidth = (Long) Math.abs(maxValueState - minValueState);
 			if (columnWidth == 0)
 				columnWidth = (long) 1;
-			res = Math.round(t.Count * (double) intervalWidth / columnWidth);
+			res = Math.round(t.count * (double) intervalWidth / columnWidth);
 		}
 		return res;
 	}
 
-	public static Long GetEstimatedRowsCountInsideTheInterval(Interval interval, Column column, Table t) {
+	public static Long getEstimatedRowsCountInsideTheInterval(Interval interval, Column column, Table t) {
 		Long res = new Long(0);
 
-		switch (column.GlobalColumnType) {
+		switch (column.globalColumnType) {
 		case DictionaryField: {
-			res = GetEstimatedRowsCountInsideTheIntervalForDictionaryField(interval, column, t);
+			res = getEstimatedRowsCountInsideTheIntervalForDictionaryField(interval, column, t);
 		}
 			break;
 		case DistributedField: {
-			res = GetEstimatedRowsCountInsideTheIntervalForDistributedField(interval, column, t);
+			res = getEstimatedRowsCountInsideTheIntervalForDistributedField(interval, column, t);
 		}
 			break;
 		case DistributedFieldWithEmissions: {
-			res = GetEstimatedRowsCountInsideTheIntervalForDistributedFieldWithEmissions(interval, column, t);
+			res = getEstimatedRowsCountInsideTheIntervalForDistributedFieldWithEmissions(interval, column, t);
 		}
 			break;
 		case Identificator: {
-			res = GetEstimatedRowsCountInsideTheIntervalForIdentificator(interval, column, t);
+			res = getEstimatedRowsCountInsideTheIntervalForIdentificator(interval, column, t);
 		}
 			break;
 		case NonNumericidentifier: {
@@ -2153,10 +2147,10 @@ public final class QueriesComparision {
 		return res;
 	}
 
-	public static Map<String, Map<Integer, List<Predicate>>> GetPredicateForEachColumn(Query q, Table t, Options opt) {
+	public static Map<String, Map<Integer, List<Predicate>>> getPredicateForEachColumn(Query q, Table t, Options opt) {
 		Map<String, Map<Integer, List<Predicate>>> res = new TreeMap<String, Map<Integer, List<Predicate>>>();
 		List<List<Predicate>> predicatesInThisQuery = q.whereClausesTerms;
-		long minimumRowCount = t.Count;
+		long minimumRowCount = t.count;
 
 		int iList = 0;
 		for (List<Predicate> lispredicate : predicatesInThisQuery) {
@@ -2167,7 +2161,7 @@ public final class QueriesComparision {
 				String value = orPredicate.value;
 				Operator operator = orPredicate.op;
 
-				if (table.equals(t.Name)) {
+				if (table.equals(t.name)) {
 					String fullColumnName = table + "." + column;
 					Column col = opt.COLUMNS_DISTRIBUTION.get(fullColumnName);
 					Map<Integer, List<Predicate>> maplistPred = res.get(fullColumnName);

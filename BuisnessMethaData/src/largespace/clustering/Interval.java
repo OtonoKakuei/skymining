@@ -2,12 +2,12 @@ package largespace.clustering;
 
 public class Interval {
 
-	public Object MinVal;
-	public Object MaxVal;
-	public Boolean StricktMinBorder;
-	public Boolean StricktMaxBorder;
-	public String Index;
+	public Object minVal;
+	public Object maxVal;
+	public Boolean strictMinBorder;
+	public Boolean strictMaxBorder;
+	public String index;
 
-	public Boolean HasOnlyIntervalsEstimatedRowCount = false;
-	public Long EstimatedRowCount;
+	public Boolean hasOnlyIntervalsEstimatedRowCount = false;
+	public Long estimatedRowCount;
 }

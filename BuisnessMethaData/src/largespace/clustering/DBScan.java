@@ -1,17 +1,12 @@
 package largespace.clustering;
 
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
 import largespace.business.GlobalCaches;
 import largespace.business.Loader;
 import largespace.business.Options;
-
-import java.util.LinkedList;
-import java.util.List;
-
-import java.awt.Desktop.Action;
-import java.io.*;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public final class DBScan {
 	private DBScan() {
@@ -22,7 +17,7 @@ public final class DBScan {
 		if (opt.PREPROCESS)
 			// This has already done, The Preprocess(opt) analyze query log and
 			// find pre-clusters based on FROM part of the statements
-			Preprocess(opt);
+			preprocess(opt);
 		else {
 			// from file read table names and the count of rows in them
 			Loader.readTables(opt);
@@ -56,14 +51,14 @@ public final class DBScan {
 
 	}
 
-	public static void Preprocess(Options opt) throws Exception {
+	public static void preprocess(Options opt) throws Exception {
 		Loader.readTables(opt);
 		Loader.readColumns(opt, opt.FILE_CLMN_OUTPUT);
 		// load data
 		Map<String, Column> columns = Loader.readColumnsFromInputData(opt);
 		// find FromClusters
 		Loader.Postprocess(opt);
-		Loader.CalculateQueryCountInEachCluster(opt);
+		Loader.calculateQueryCountInEachCluster(opt);
 
 		Loader.writeTables(opt);
 		// Loader.writeColumns(opt.FILE_CLMN_OUTPUT, columns, opt);

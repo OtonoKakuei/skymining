@@ -4,14 +4,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class DistributedField {
-	public Double MinValue;
-	public Double MaxValue;
+	public Double minValue;
+	public Double maxValue;
 
-	public Map<Object, ValueState> Values = new HashMap<Object, ValueState>();
+	public Map<Object, ValueState> values = new HashMap<Object, ValueState>();
 
 	public DistributedField(Double minValue, Double maxValue) {
-		MinValue = minValue;
-		MaxValue = maxValue;
+		this.minValue = minValue;
+		this.maxValue = maxValue;
 
 	}
 }

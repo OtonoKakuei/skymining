@@ -50,7 +50,7 @@ public class DatabaseInteraction {
 	// get the last Seq processed from query log
 	// tableLastSeq - table name where last processed seq stored
 	// tableLog - table name where the log stored
-	public List<Long> GetlastSeq(String tableLastSeq, String tableLog) {
+	public List<Long> getlastSeq(String tableLastSeq, String tableLog) {
 		List<Long> list = new ArrayList<Long>();
 		Long lastSeq = new Long(0);
 		Long maxVal = new Long(0);
@@ -80,6 +80,8 @@ public class DatabaseInteraction {
 				rs = st.executeQuery("INSERT INTO " + tableLastSeq + " (LAST_SEQ, FINAL_SEQ  ) VALUES  ("
 						+ lastSeq.toString() + ", " + maxVal.toString() + " )");
 			} else {
+				//FIXME check if rs is closed correctly
+				rs.close();;
 				rs = st.executeQuery("SELECT LAST_SEQ, FINAL_SEQ FROM " + tableLastSeq);
 
 				if (rs.next()) {
@@ -99,7 +101,7 @@ public class DatabaseInteraction {
 		return list;
 	}
 
-	public HashMap<String, Table> GetTablesKeys() {
+	public HashMap<String, Table> getTablesKeys() {
 		HashMap<String, Table> map = new HashMap<String, Table>();
 		try {
 
@@ -111,7 +113,7 @@ public class DatabaseInteraction {
 			while (rs.next()) {
 				Table t = new Table(rs, true);
 
-				map.put(t.Name, t);
+				map.put(t.name, t);
 			}
 			rs.close();
 			st.close();
@@ -141,7 +143,7 @@ public class DatabaseInteraction {
 		return res;
 	}
 
-	public void SetlastSeq(Long lastSeq, String tableLastSeq) {
+	public void setlastSeq(Long lastSeq, String tableLastSeq) {
 		try {
 			Statement st = conn.createStatement();
 			ResultSet rs = null;
@@ -157,7 +159,7 @@ public class DatabaseInteraction {
 
 	}
 
-	public void SaveTableToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
+	public void saveTableToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
 		// TODO save the result of the query with seq = seq to our internal DB
 		// you need to implement this
 	}

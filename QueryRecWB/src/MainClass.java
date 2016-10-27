@@ -25,13 +25,13 @@ public class MainClass {
 		// on preprocessing step we fill this internal database
 
 		case 0:
-			rec.Preprocess(opt);
+			rec.preprocess(opt);
 			break;
 		case 1:
-			rec.Recommend(opt);
+			rec.recommend(opt);
 			break;
 		case 2:
-			rec.Evaluate(opt);
+			rec.evaluate(opt);
 			break;
 		}
 

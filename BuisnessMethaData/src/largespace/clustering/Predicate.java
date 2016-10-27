@@ -29,13 +29,13 @@ public class Predicate implements Comparable<Predicate> {
 			// try to find out
 			Boolean presentInOneTable = false;
 			for (Table t : ts) {
-				if (t.Columns.containsKey(tableColumn[0].trim().toLowerCase())) {
+				if (t.columns.containsKey(tableColumn[0].trim().toLowerCase())) {
 					if (!presentInOneTable) {
 						presentInOneTable = true;
-						this.table = t.Name;
+						this.table = t.name;
 						this.column = tableColumn[0].trim().toLowerCase();
 					} else {
-						this.table = t.Name;
+						this.table = t.name;
 						this.column = tableColumn[0].trim().toLowerCase();
 						break;
 					}

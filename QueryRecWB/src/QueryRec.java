@@ -2,6 +2,7 @@
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import accessarea.AccessArea;
 import accessarea.AccessAreaExtraction;
@@ -14,17 +15,17 @@ import largespace.business.Table;
 import net.sf.jsqlparser.statement.select.FromItem;
 
 public class QueryRec {
-	OptionsOwn opt;
-	DatabaseInteraction dbI = new DatabaseInteraction();
+	private OptionsOwn opt;
+	private DatabaseInteraction dbI = new DatabaseInteraction();
 
 	public QueryRec(OptionsOwn opt_) {
 		opt = opt_;
 		// dbI = new DatabaseInteraction();
 		DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password);
-		opt.TABLESWITHKEYS = dbI.GetTablesKeys();
+		opt.tablesWithKeys = dbI.getTablesKeys();
 	}
 
-	public void Preprocess(OptionsOwn opt) {
+	public void preprocess(OptionsOwn opt) {
 		// read data piece by piece from the DB
 		// parse statements
 		// write pre-processed data to the DB
@@ -33,7 +34,7 @@ public class QueryRec {
 
 		try {
 
-			List<Long> lastSeqList = dbI.GetlastSeq("QRS_LAST_SEQ_WB", "QRS_STATEMENTS_PP");
+			List<Long> lastSeqList = dbI.getlastSeq("QRS_LAST_SEQ_WB", "QRS_STATEMENTS_PP");
 			Long lastSeq = lastSeqList.get(0);
 			Long finalSeq = lastSeqList.get(1);
 
@@ -54,24 +55,24 @@ public class QueryRec {
 				for (RowInfo ri : rows) {
 					// there is no point of re-querying if we know that it
 					// returns 0 rows
-					if (ri.NrRows > 0) {
-						AccessArea accessArea = extraction.extractAccessArea(ri.Statement);
+					if (ri.nrRows > 0) {
+						AccessArea accessArea = extraction.extractAccessArea(ri.statement);
 						List<FromItem> fi = accessArea.getFrom();
 						// now we have tables in the from clause of the
 						// statement
 						// for each table we now keyColumn
-						HashMap<String, Table> tables = sc.GetTablesWithKeysFromTheFromItemsOfStatement(fi, opt);
+						Map<String, Table> tables = sc.getTablesWithKeysFromTheFromItemsOfStatement(fi, opt);
 
 						// for each query from query log
 						// perform a query to the DB (SkyServer)
 						// internalDB is the DB (internal DB)
 						HttpURLConnectionExt internalDB = new HttpURLConnectionExt();
-						List<Pair<Table, Object>> queryResult = internalDB.sendGetResultFromQuery(ri, tables);
+						List<Pair<Table, Object>> queryResult = internalDB.sendGetResultFromQuery(ri, (HashMap<String, Table>) tables);
 						// store data to our internal DB
-						dbI.SaveTableToDB(queryResult, ri);
+						dbI.saveTableToDB(queryResult, ri);
 					}
 				}
-				dbI.SetlastSeq(nextSeq, "QRS_LAST_SEQ_WB");
+				dbI.setlastSeq(nextSeq, "QRS_LAST_SEQ_WB");
 				lastSeq = nextSeq;
 				if (lastSeq >= finalSeq)
 					achieveTheFinalSeq = true;
@@ -86,11 +87,11 @@ public class QueryRec {
 
 	}
 
-	public void Recommend(OptionsOwn opt) {
-
+	public void recommend(OptionsOwn opt) {
+		//TODO implement this
 	}
 
-	public void Evaluate(OptionsOwn opt) {
-
+	public void evaluate(OptionsOwn opt) {
+		//TODO implement this
 	}
 }

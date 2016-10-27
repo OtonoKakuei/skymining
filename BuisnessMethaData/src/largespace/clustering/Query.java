@@ -1,11 +1,20 @@
 package largespace.clustering;
 
-import largespace.business.*;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.ToDoubleBiFunction;
 import java.util.stream.Collectors;
+
+import largespace.business.GlobalCaches;
+import largespace.business.Options;
+import largespace.business.ParseException;
+import largespace.business.Regex;
+import largespace.business.Table;
+import largespace.business.Utils;
 
 public class Query {
 	public final int id;
@@ -18,14 +27,14 @@ public class Query {
 	public boolean SomethingWrong = false;
 	String fromPart = "";
 	String wherePart = "";
-	public String Statement = "";
-	public Long UserSession = new Long(0);
-	public Boolean HasNotOverlap = false;
+	public String statement = "";
+	public Long userSession = new Long(0);
+	public Boolean hasNotOverlapped = false;
 
 	public Query(int id, String from, String where, long seq, Options opt, Long userSession) throws ParseException {
 		this.id = id;
 		this.seq = seq;
-		this.UserSession = userSession;
+		this.userSession = userSession;
 
 		this.fromPart = from;
 		this.wherePart = where;
@@ -311,7 +320,7 @@ public class Query {
 			if (commonTables != null) {
 				for (String comTable : commonTables) {
 					Table tbl = opt.TABLESWITHCOUNT.get(comTable);
-					if (tbl.Count > res.Count) {
+					if (tbl.count > res.count) {
 						res = tbl;
 					}
 				}
@@ -333,9 +342,9 @@ public class Query {
 
 			Table largestTable = returnLargestCommonTable(commonTables, opt);
 
-			Long overlap = QueriesComparision.GetEstimatedRowsOverlap(this, other, largestTable, opt);
+			Long overlap = QueriesComparision.getEstimatedRowsOverlap(this, other, largestTable, opt);
 
-			Long overall = QueriesComparision.GetEstimatedRowsOverall(this, other, largestTable, opt);
+			Long overall = QueriesComparision.getEstimatedRowsOverall(this, other, largestTable, opt);
 			if (overall == -1)
 				return 1;
 			overall = overall - overlap;

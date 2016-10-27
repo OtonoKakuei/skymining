@@ -1,35 +1,26 @@
 package largespace.business;
-import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 
-import aima.core.util.datastructure.Pair;
-import largespace.clustering.Column;;
+import java.sql.ResultSet;;
+
 public class Feature {
-	public String Name = "";
-	
-	public Integer FeatureId;
-	
-	public Feature()
-	{}
-	
-	public Feature (ResultSet rs, Boolean withkey)
-	{
-		if (withkey)
-		{
-			try
-			{
+	public String name = "";
+
+	public Integer featureId;
+
+	public Feature() {
+	}
+
+	public Feature(ResultSet rs, Boolean withkey) {
+		if (withkey) {
+			try {
 				// from this recordset: FEATURE_ID, FEATURE
-				FeatureId = rs.getInt("FEATURE_ID");
-				Name = rs.getString("FEATURE").toLowerCase();
-			}
-			catch (Exception ex)
-			{
+				featureId = rs.getInt("FEATURE_ID");
+				name = rs.getString("FEATURE").toLowerCase();
+			} catch (Exception ex) {
 				System.out.println("Exception in Table(rs). ex = " + ex.getMessage());
 			}
 		}
-		
+
 	}
 
 }
