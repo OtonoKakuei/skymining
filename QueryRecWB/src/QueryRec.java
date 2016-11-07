@@ -34,7 +34,7 @@ public class QueryRec {
 
 		try {
 
-			List<Long> lastSeqList = dbI.getlastSeq("QRS_LAST_SEQ_WB", "QRS_STATEMENTS_PP");
+			List<Long> lastSeqList = dbI.getlastSeq("QRS_LAST_SEQ_WB", "QRS.QRS_STATEMENTS_PP");
 			Long lastSeq = lastSeqList.get(0);
 			Long finalSeq = lastSeqList.get(1);
 
@@ -74,6 +74,7 @@ public class QueryRec {
 				}
 				dbI.setlastSeq(nextSeq, "QRS_LAST_SEQ_WB");
 				lastSeq = nextSeq;
+				System.out.println("++++" + lastSeq);
 				if (lastSeq >= finalSeq)
 					achieveTheFinalSeq = true;
 			}

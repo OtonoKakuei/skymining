@@ -19,14 +19,14 @@ public final class OptionsOwn {
 	// userSessionTableTF.setText("QRS_USER_SESSIONS");
 
 	@Parameter(names = "-serverAddress")
-	public String serverAddress = "marsara.ipd.kit.edu:1521:student";
+	public String serverAddress = "sccdb-odabase-1.scc.kit.edu:1521/ubtest";
 	@Parameter(names = "-username")
-	public String username = "arzamasova";
+	public String username = "QRS_WB";
 	@Parameter(names = "-password")
-	public String password = "arzamasova";
+	public String password = "qrs_wb18102016";
 
 	@Parameter(names = "-logTable")
-	public String logTable = "QRS_STATEMENTS_PP";
+	public String logTable = "QRS.QRS_STATEMENTS_PP";
 
 	public Map<String, Table> tablesWithKeys = new TreeMap<String, Table>();
 
