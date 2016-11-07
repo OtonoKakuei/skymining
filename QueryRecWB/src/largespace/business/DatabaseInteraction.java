@@ -3,10 +3,13 @@ package largespace.business;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import aima.core.util.datastructure.Pair;
 
@@ -132,7 +135,6 @@ public class DatabaseInteraction {
 			rs = st.executeQuery("select seq, NRROWS, statement from " + opt.logTable + " where seq > "
 					+ lastSeq.toString() + " and seq <= " + nextSeq.toString()
 					+ "AND LOWER(statement) NOT LIKE '%create table%' AND LOWER(statement) NOT LIKE 'declare %' order by seq");
-
 			while (rs.next()) {
 				RowInfo ri = new RowInfo(rs, true);
 				res.add(ri);
@@ -147,7 +149,7 @@ public class DatabaseInteraction {
 		try {
 			Statement st = conn.createStatement();
 			ResultSet rs = null;
-
+			System.out.println("LastSeq: " + lastSeq.toString());
 			rs = st.executeQuery("UPDATE " + tableLastSeq + " SET LAST_SEQ = " + lastSeq.toString());
 
 			conn.commit();
@@ -162,5 +164,34 @@ public class DatabaseInteraction {
 	public void saveTableToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
 		// TODO save the result of the query with seq = seq to our internal DB
 		// you need to implement this
+		Set<Pair<Table, Object>> querySet = new HashSet<>(queryResult);
+		
+		for (Pair<Table, Object> tuple : querySet) {
+			Table table = tuple.getFirst();
+			Object keyId = tuple.getSecond();
+//			System.out.println("Table: " + table.name);
+//			System.out.println("KeyID: " + keyId);
+			String queryTupleTableID = "QRS_QUERY_TUPLE";
+			String stringTableID = queryTupleTableID + "_STRING";
+			String numericTableID = queryTupleTableID + "_NUMERIC";
+			String tableID = numericTableID;
+//			System.out.println("String tableID: " + stringTableID);
+//			System.out.println("String tableID: " + numericTableID);
+			try {
+				Statement st = conn.createStatement();
+				if (table.keyColumn.attributeType == 3) {
+					//means that the key of the table is of type String
+					tableID = stringTableID;
+				}
+				String query = "INSERT INTO " + tableID + " (SEQ, TABLE_ID, KEY_ID ) VALUES  ("
+						+ ri.seq + ", " + table.tableId + ", " + keyId + " )";
+				st.executeQuery(query);
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		
 	}
 }
