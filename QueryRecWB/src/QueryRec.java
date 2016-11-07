@@ -1,4 +1,3 @@
-import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,16 +35,14 @@ public class QueryRec {
 			List<Long> lastSeqList = dbI.getlastSeq("QRS_LAST_SEQ_WB", "QRS.QRS_STATEMENTS_PP");
 			Long lastSeq = lastSeqList.get(0);
 			Long finalSeq = lastSeqList.get(1);
-			Statement st2 = dbI.conn.createStatement();
+//			Statement st2 = dbI.conn.createStatement();
 
 			Boolean achieveTheFinalSeq = false;
-			lastSeq = 8000L;
+			//FIXME uncomment this if needed
+//			lastSeq = 0L;
 			while (!achieveTheFinalSeq) {
 				DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password); // Also
 																										// starts
-																										// the
-																										// connection
-
 				Long nextSeq = lastSeq + 70;
 				// get next N statements;
 				List<RowInfo> rows = dbI.getNextNStatements(lastSeq, nextSeq, opt);
@@ -66,10 +63,6 @@ public class QueryRec {
 						// internalDB is the DB (internal DB)
 						HttpURLConnectionExt internalDB = new HttpURLConnectionExt();
 						List<Pair<Table, Object>> queryResult = internalDB.sendGetResultFromQuery(ri, (HashMap<String, Table>) tables);
-						System.out.println("QueryResultSize: " + queryResult.size());
-						for (Pair<Table, Object> result : queryResult) {
-							System.out.println("Result: " + result.getFirst().name + ", object: " + result.getSecond());
-						}
 						// store data to our internal DB
 						dbI.saveTableToDB(queryResult, ri);
 					}
