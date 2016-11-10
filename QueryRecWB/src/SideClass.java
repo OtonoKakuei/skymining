@@ -8,7 +8,7 @@ import net.sf.jsqlparser.statement.select.FromItem;
 
 public class SideClass {
 
-	public Map<String, Table> getTablesWithKeysFromTheFromItemsOfStatement(List<FromItem> fromItems,
+	public static Map<String, Table> getTablesWithKeysFromTheFromItemsOfStatement(List<FromItem> fromItems,
 			OptionsOwn opt) {
 		Map<String, Table> res = new HashMap<String, Table>();
 		for (FromItem fi : fromItems) {

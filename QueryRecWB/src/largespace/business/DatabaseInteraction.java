@@ -145,6 +145,25 @@ public class DatabaseInteraction {
 		return res;
 	}
 
+	public List<RowInfo> getAllRelevantStatements(OptionsOwn opt) {
+		List<RowInfo> res = new ArrayList<RowInfo>();
+		try {
+			Statement st = conn.createStatement();
+			st.setFetchSize(50000);
+			ResultSet rs = null;
+			rs = st.executeQuery("select seq, NRROWS, statement from " + opt.logTable + " where nrrows > 0 "
+					+ "AND LOWER(statement) NOT LIKE '%create table%' AND LOWER(statement) NOT LIKE 'declare %' order by seq");
+			while (rs.next()) {
+				RowInfo ri = new RowInfo(rs, true);
+//				System.out.println(ri);
+				res.add(ri);
+			}
+		} catch (Exception ex) {
+
+		}
+		return res;
+	}
+	
 	public void setlastSeq(Long lastSeq, String tableLastSeq) {
 		try {
 			Statement st = conn.createStatement();
@@ -164,8 +183,10 @@ public class DatabaseInteraction {
 	public void saveTableToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
 		// TODO save the result of the query with seq = seq to our internal DB
 		// you need to implement this
+//		System.out.println("QueryResult: " + queryResult);
 		Set<Pair<Table, Object>> querySet = new HashSet<>(queryResult);
-		
+//		System.out.println("QuerySet: " + querySet);
+		boolean errorRidden = false;
 		for (Pair<Table, Object> tuple : querySet) {
 			Table table = tuple.getFirst();
 			Object keyId = tuple.getSecond();
@@ -183,15 +204,43 @@ public class DatabaseInteraction {
 					//means that the key of the table is of type String
 					tableID = stringTableID;
 				}
-				String query = "INSERT INTO " + tableID + " (SEQ, TABLE_ID, KEY_ID ) VALUES  ("
-						+ ri.seq + ", " + table.tableId + ", " + keyId + " )";
+//				String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) VALUES  ("
+//						+ ri.seq + ", " + table.tableId + ", " + keyId + " )";
+				String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) SELECT  "
+						+ ri.seq + ", " + table.tableId + ", " + keyId + " FROM dual WHERE NOT EXISTS ("
+								+ " SELECT 1 FROM " + tableID + " WHERE SEQ = " + ri.seq + " AND TABLE_ID = " + table.tableId
+								+ " AND KEY_ID = " + keyId + " )";
+				System.out.println("Executing: " + ri);
 				st.executeQuery(query);
-			} catch (SQLException e) {
-				// TODO Auto-generated catch block
+				conn.commit();
+			} catch (Exception e) {
 				e.printStackTrace();
+				errorRidden = true;
+				//FIXME should we really break here?
+				break;
 			}
 		}
-		
+		if (errorRidden) {
+			saveProblematicSequencesDB(ri);
+		}
 		
 	}
+	
+	public void saveProblematicSequencesDB(RowInfo ri) {
+		try {
+			Statement st = conn.createStatement();
+			String tableID = "QRS_PROBLEMATIC_SEQUENCES";
+			String query = "INSERT INTO " + tableID + " ( SEQ ) SELECT  "
+					+ ri.seq + " FROM dual WHERE NOT EXISTS ( SELECT 1 FROM " + tableID
+					+ " WHERE SEQ = " + ri.seq + " )";
+			System.out.println("Saving ProblematicSequence: " + ri);
+			st.executeQuery(query);
+			conn.commit();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+		
+		
 }
