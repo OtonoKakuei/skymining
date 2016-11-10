@@ -25,7 +25,9 @@ public class MainClass {
 		// on preprocessing step we fill this internal database
 
 		case 0:
+			//uncomment the one that's not needed
 			rec.preprocess(opt);
+//			rec.processProblematicSequences(opt);
 			break;
 		case 1:
 			rec.recommend(opt);

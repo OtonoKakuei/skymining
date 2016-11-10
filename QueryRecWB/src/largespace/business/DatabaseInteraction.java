@@ -164,6 +164,25 @@ public class DatabaseInteraction {
 		return res;
 	}
 	
+	public List<RowInfo> getAllProblematicStatements(OptionsOwn opt) {
+		List<RowInfo> res = new ArrayList<RowInfo>();
+		try {
+			Statement st = conn.createStatement();
+			st.setFetchSize(50000);
+			ResultSet rs = null;
+			rs = st.executeQuery("select seq, NRROWS, statement from " + opt.logTable + "a join QRS_PROBLEMATIC_SEQUENCES b on " 
+					+ "a.seq = b.seq");
+			while (rs.next()) {
+				RowInfo ri = new RowInfo(rs, true);
+//				System.out.println(ri);
+				res.add(ri);
+			}
+		} catch (Exception ex) {
+
+		}
+		return res;
+	}
+	
 	public void setlastSeq(Long lastSeq, String tableLastSeq) {
 		try {
 			Statement st = conn.createStatement();
