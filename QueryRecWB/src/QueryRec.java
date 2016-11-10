@@ -80,9 +80,6 @@ public class QueryRec {
 			System.out.println("Number of relevant rows: " + relevantRows.size());
 
 			for (RowInfo rowInfo : relevantRows) {
-				if (rowInfo.seq < 272354) {
-					continue;
-				}
 				try {
 					System.out.println("SEQ: " + rowInfo.seq);
 					DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password);
