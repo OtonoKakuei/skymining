@@ -7,7 +7,7 @@ import largespace.business.OptionsOwn;
 import largespace.business.Table;
 import net.sf.jsqlparser.statement.select.FromItem;
 
-public class SideClass {
+public class QueryUtil {
 
 	public static Map<String, Table> getTablesWithKeysFromTheFromItemsOfStatement(List<FromItem> fromItems,
 			OptionsOwn opt) {

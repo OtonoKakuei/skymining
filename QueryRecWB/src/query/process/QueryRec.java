@@ -47,7 +47,7 @@ public class QueryRec {
 					// now we have tables in the from clause of the
 					// statement
 					// for each table we now keyColumn
-					Map<String, Table> tables = SideClass.getTablesWithKeysFromTheFromItemsOfStatement(fi, opt);
+					Map<String, Table> tables = QueryUtil.getTablesWithKeysFromTheFromItemsOfStatement(fi, opt);
 					
 					// for each query from query log
 					// perform a query to the DB (SkyServer)
@@ -89,7 +89,7 @@ public class QueryRec {
 					// now we have tables in the from clause of the
 					// statement
 					// for each table we now keyColumn
-					Map<String, Table> tables = SideClass.getTablesWithKeysFromTheFromItemsOfStatement(fi, opt);
+					Map<String, Table> tables = QueryUtil.getTablesWithKeysFromTheFromItemsOfStatement(fi, opt);
 					
 					// for each query from query log
 					// perform a query to the DB (SkyServer)
