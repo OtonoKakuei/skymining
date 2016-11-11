@@ -35,9 +35,9 @@ public class QueryRec {
 			List<RowInfo> relevantRows = dbI.getAllRelevantStatements(opt);
 			System.out.println("Number of relevant rows: " + relevantRows.size());
 			for (RowInfo rowInfo : relevantRows) {
-				if (rowInfo.seq < 272354) {
-					continue;
-				}
+//				if (rowInfo.seq < 272354) {
+//					continue;
+//				}
 				try {
 					System.out.println("SEQ: " + rowInfo.seq);
 					DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password);

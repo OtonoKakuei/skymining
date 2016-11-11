@@ -171,7 +171,7 @@ public class DatabaseInteraction {
 			st.setFetchSize(50000);
 			ResultSet rs = null;
 			rs = st.executeQuery("select seq, NRROWS, statement from " + opt.logTable + "a join QRS_PROBLEMATIC_SEQUENCES b on " 
-					+ "a.seq = b.seq");
+					+ "a.seq = b.seq order by seq");
 			while (rs.next()) {
 				RowInfo ri = new RowInfo(rs, true);
 //				System.out.println(ri);
