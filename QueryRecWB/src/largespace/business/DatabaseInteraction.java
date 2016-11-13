@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Set;
 
 import aima.core.util.datastructure.Pair;
+import wb.model.TupleInfo;
 
 public class DatabaseInteraction {
 	public static Connection conn;
@@ -155,7 +156,6 @@ public class DatabaseInteraction {
 					+ "AND LOWER(statement) NOT LIKE '%create table%' AND LOWER(statement) NOT LIKE 'declare %' order by seq");
 			while (rs.next()) {
 				RowInfo ri = new RowInfo(rs, true);
-//				System.out.println(ri);
 				res.add(ri);
 			}
 		} catch (Exception ex) {
@@ -174,13 +174,45 @@ public class DatabaseInteraction {
 					+ "a.seq = b.seq order by seq");
 			while (rs.next()) {
 				RowInfo ri = new RowInfo(rs, true);
-//				System.out.println(ri);
 				res.add(ri);
 			}
 		} catch (Exception ex) {
 
 		}
 		return res;
+	}
+	
+	public static List<TupleInfo> getAllTuples(long seq) {
+		List<TupleInfo> res = new ArrayList<>();
+		try {
+			Statement st = conn.createStatement();
+			st.setFetchSize(50000);
+			ResultSet rs = null;
+			rs = st.executeQuery("select seq, table_id, key_id from QRS_QUERY_TUPLE_NUMERIC a where a.seq = " + seq + " order by seq");
+			while (rs.next()) {
+				res.add(new TupleInfo(rs));
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return res;
+	}
+	
+	public static Set<Long> getSimilarSequences(TupleInfo tuple) {
+		Set<Long> similarSequences = new HashSet<>();
+		try {
+			Statement st = conn.createStatement();
+			st.setFetchSize(50000);
+			ResultSet resultSet = null;
+			resultSet = st.executeQuery("select seq from QRS_QUERY_TUPLE_NUMERIC a where not a.seq = " + tuple.getSequence() + ""
+					+ " and a.table_id = " + tuple.getTableId() + " and a.key_id = " + tuple.getKeyId());
+			while (resultSet.next()) {
+				similarSequences.add(resultSet.getLong("SEQ"));
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return similarSequences;
 	}
 	
 	public void setlastSeq(Long lastSeq, String tableLastSeq) {
