@@ -247,65 +247,54 @@ public class DatabaseInteraction {
 			try {
 				Statement st = conn.createStatement();
 				if (table.keyColumn.attributeType == 3) {
-					//means that the key of the table is of type String
+					// means that the key of the table is of type String
 					tableID = stringTableID;
 					stringAddition = "\'";
 				}
-				String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) SELECT  "
-						+ ri.seq + ", " + table.tableId + ", " + stringAddition + keyId +stringAddition + " FROM dual WHERE NOT EXISTS ("
-								+ " SELECT 1 FROM " + tableID + " WHERE SEQ = " + ri.seq + " AND TABLE_ID = " + table.tableId
-								+ " AND KEY_ID = " + stringAddition + keyId + stringAddition + " )";
+				String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) SELECT  " + ri.seq + ", "
+						+ table.tableId + ", " + stringAddition + keyId + stringAddition
+						+ " FROM dual WHERE NOT EXISTS (" + " SELECT 1 FROM " + tableID + " WHERE SEQ = " + ri.seq
+						+ " AND TABLE_ID = " + table.tableId + " AND KEY_ID = " + stringAddition + keyId
+						+ stringAddition + " )";
 				System.out.println("Executing: " + ri);
 				st.executeQuery(query);
 				conn.commit();
 			} catch (Exception e) {
 				e.printStackTrace();
 				errorRidden = true;
-				//FIXME should we really break here?
+				// FIXME should we really break here?
 				break;
 			}
 		}
 		if (errorRidden) {
 			saveProblematicSequencesDB(ri);
 		}
-		
+
 	}
 
 	public void saveFixedStatementsToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
 		Set<Pair<Table, Object>> querySet = new HashSet<>(queryResult);
-		// System.out.println("QuerySet: " + querySet);
 		boolean errorRidden = false;
 		System.out.println("Executing: " + ri);
 		for (Pair<Table, Object> tuple : querySet) {
 			Table table = tuple.getFirst();
 			Object keyId = tuple.getSecond();
-			// System.out.println("Table: " + table.name);
-			// System.out.println("KeyID: " + keyId);
-			String queryTupleTableID = "_PROBLEMATIC";
-			String stringTableID = "STRING" + queryTupleTableID;
-			String numericTableID = "NUMERIC" + queryTupleTableID;
+			String queryTupleTableID = "QRS_QUERY_TUPLE";
+			String stringTableID = queryTupleTableID + "_STRING";
+			String stringAddition = "";
+			String numericTableID = queryTupleTableID + "_NUMERIC";
 			String tableID = numericTableID;
-			// System.out.println("String tableID: " + stringTableID);
-			// System.out.println("String tableID: " + numericTableID);
 			try {
 				Statement st = conn.createStatement();
 				if (table.keyColumn.attributeType == 3) {
-					// means that the key of the table is of type String
 					tableID = stringTableID;
+					stringAddition = "\'";
 				}
-				// String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID,
-				// KEY_ID ) VALUES ("
-				// + ri.seq + ", " + table.tableId + ", " + keyId + " )";
 				String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) SELECT  " + ri.seq + ", "
-						+ table.tableId + ", " + keyId + " FROM dual WHERE NOT EXISTS (" + " SELECT 1 FROM " + tableID
-						+ " WHERE SEQ = " + ri.seq + " AND TABLE_ID = " + table.tableId + " AND KEY_ID = " + keyId
-						+ " )";
-				if (tableID.equals(stringTableID)) {
-					query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) SELECT  " + ri.seq + ", "
-							+ table.tableId + ", \'" + keyId + "\' FROM dual WHERE NOT EXISTS (" + " SELECT 1 FROM "
-							+ tableID + " WHERE SEQ = " + ri.seq + " AND TABLE_ID = " + table.tableId
-							+ " AND KEY_ID = \'" + keyId + "\' )";
-				}
+						+ table.tableId + ", " + stringAddition + keyId + stringAddition
+						+ " FROM dual WHERE NOT EXISTS (" + " SELECT 1 FROM " + tableID + " WHERE SEQ = " + ri.seq
+						+ " AND TABLE_ID = " + table.tableId + " AND KEY_ID = " + stringAddition + keyId
+						+ stringAddition + " )";
 				st.executeQuery(query);
 				conn.commit();
 			} catch (Exception e) {
@@ -318,9 +307,16 @@ public class DatabaseInteraction {
 		}
 		if (errorRidden) {
 			System.out.println("SEQ: " + ri);
-			//
 		} else {
-
+			String deleteQuery = "DELETE FROM QRS_PROBLEMATIC_SEQUENCES WHERE seq = " + ri.seq;
+			Statement st;
+			try {
+				st = conn.createStatement();
+				st.executeQuery(deleteQuery);
+				conn.commit();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 
