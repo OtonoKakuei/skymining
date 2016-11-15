@@ -200,35 +200,27 @@ public class DatabaseInteraction {
 	}
 
 	public void saveTableToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
-		// TODO save the result of the query with seq = seq to our internal DB
-		// you need to implement this
-//		System.out.println("QueryResult: " + queryResult);
 		Set<Pair<Table, Object>> querySet = new HashSet<>(queryResult);
-//		System.out.println("QuerySet: " + querySet);
 		boolean errorRidden = false;
 		for (Pair<Table, Object> tuple : querySet) {
 			Table table = tuple.getFirst();
 			Object keyId = tuple.getSecond();
-//			System.out.println("Table: " + table.name);
-//			System.out.println("KeyID: " + keyId);
 			String queryTupleTableID = "QRS_QUERY_TUPLE";
 			String stringTableID = queryTupleTableID + "_STRING";
+			String stringAddition = "";
 			String numericTableID = queryTupleTableID + "_NUMERIC";
 			String tableID = numericTableID;
-//			System.out.println("String tableID: " + stringTableID);
-//			System.out.println("String tableID: " + numericTableID);
 			try {
 				Statement st = conn.createStatement();
 				if (table.keyColumn.attributeType == 3) {
 					//means that the key of the table is of type String
 					tableID = stringTableID;
+					stringAddition = "\'";
 				}
-//				String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) VALUES  ("
-//						+ ri.seq + ", " + table.tableId + ", " + keyId + " )";
 				String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) SELECT  "
-						+ ri.seq + ", " + table.tableId + ", " + keyId + " FROM dual WHERE NOT EXISTS ("
+						+ ri.seq + ", " + table.tableId + ", " + stringAddition + keyId +stringAddition + " FROM dual WHERE NOT EXISTS ("
 								+ " SELECT 1 FROM " + tableID + " WHERE SEQ = " + ri.seq + " AND TABLE_ID = " + table.tableId
-								+ " AND KEY_ID = " + keyId + " )";
+								+ " AND KEY_ID = " + stringAddition + keyId + stringAddition + " )";
 				System.out.println("Executing: " + ri);
 				st.executeQuery(query);
 				conn.commit();
