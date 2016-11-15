@@ -84,8 +84,8 @@ public class DatabaseInteraction {
 				rs = st.executeQuery("INSERT INTO " + tableLastSeq + " (LAST_SEQ, FINAL_SEQ  ) VALUES  ("
 						+ lastSeq.toString() + ", " + maxVal.toString() + " )");
 			} else {
-				//FIXME check if rs is closed correctly
-				rs.close();;
+				// FIXME check if rs is closed correctly
+				rs.close();
 				rs = st.executeQuery("SELECT LAST_SEQ, FINAL_SEQ FROM " + tableLastSeq);
 
 				if (rs.next()) {
@@ -163,15 +163,15 @@ public class DatabaseInteraction {
 		}
 		return res;
 	}
-	
+
 	public List<RowInfo> getAllProblematicStatements(OptionsOwn opt) {
 		List<RowInfo> res = new ArrayList<RowInfo>();
 		try {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
 			ResultSet rs = null;
-			rs = st.executeQuery("select seq, NRROWS, statement from " + opt.logTable + "a join QRS_PROBLEMATIC_SEQUENCES b on " 
-					+ "a.seq = b.seq order by seq");
+			rs = st.executeQuery("select a.seq, NRROWS, statement from " + opt.logTable
+					+ " a join QRS_PROBLEMATIC_SEQUENCES b on " + "a.seq = b.seq order by seq");
 			while (rs.next()) {
 				RowInfo ri = new RowInfo(rs, true);
 				res.add(ri);
@@ -181,14 +181,15 @@ public class DatabaseInteraction {
 		}
 		return res;
 	}
-	
+
 	public static List<TupleInfo> getAllTuples(long seq) {
 		List<TupleInfo> res = new ArrayList<>();
 		try {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
 			ResultSet rs = null;
-			rs = st.executeQuery("select seq, table_id, key_id from QRS_QUERY_TUPLE_NUMERIC a where a.seq = " + seq + " order by seq");
+			rs = st.executeQuery("select seq, table_id, key_id from QRS_QUERY_TUPLE_NUMERIC a where a.seq = " + seq
+					+ " order by seq");
 			while (rs.next()) {
 				res.add(new TupleInfo(rs));
 			}
@@ -197,15 +198,16 @@ public class DatabaseInteraction {
 		}
 		return res;
 	}
-	
+
 	public static Set<Long> getSimilarSequences(TupleInfo tuple) {
 		Set<Long> similarSequences = new HashSet<>();
 		try {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
 			ResultSet resultSet = null;
-			resultSet = st.executeQuery("select seq from QRS_QUERY_TUPLE_NUMERIC a where not a.seq = " + tuple.getSequence() + ""
-					+ " and a.table_id = " + tuple.getTableId() + " and a.key_id = " + tuple.getKeyId());
+			resultSet = st
+					.executeQuery("select seq from QRS_QUERY_TUPLE_NUMERIC a where not a.seq = " + tuple.getSequence()
+							+ "" + " and a.table_id = " + tuple.getTableId() + " and a.key_id = " + tuple.getKeyId());
 			while (resultSet.next()) {
 				similarSequences.add(resultSet.getLong("SEQ"));
 			}
@@ -214,7 +216,7 @@ public class DatabaseInteraction {
 		}
 		return similarSequences;
 	}
-	
+
 	public void setlastSeq(Long lastSeq, String tableLastSeq) {
 		try {
 			Statement st = conn.createStatement();
@@ -232,35 +234,27 @@ public class DatabaseInteraction {
 	}
 
 	public void saveTableToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
-		// TODO save the result of the query with seq = seq to our internal DB
-		// you need to implement this
-//		System.out.println("QueryResult: " + queryResult);
 		Set<Pair<Table, Object>> querySet = new HashSet<>(queryResult);
-//		System.out.println("QuerySet: " + querySet);
 		boolean errorRidden = false;
 		for (Pair<Table, Object> tuple : querySet) {
 			Table table = tuple.getFirst();
 			Object keyId = tuple.getSecond();
-//			System.out.println("Table: " + table.name);
-//			System.out.println("KeyID: " + keyId);
 			String queryTupleTableID = "QRS_QUERY_TUPLE";
 			String stringTableID = queryTupleTableID + "_STRING";
+			String stringAddition = "";
 			String numericTableID = queryTupleTableID + "_NUMERIC";
 			String tableID = numericTableID;
-//			System.out.println("String tableID: " + stringTableID);
-//			System.out.println("String tableID: " + numericTableID);
 			try {
 				Statement st = conn.createStatement();
 				if (table.keyColumn.attributeType == 3) {
 					//means that the key of the table is of type String
 					tableID = stringTableID;
+					stringAddition = "\'";
 				}
-//				String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) VALUES  ("
-//						+ ri.seq + ", " + table.tableId + ", " + keyId + " )";
 				String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) SELECT  "
-						+ ri.seq + ", " + table.tableId + ", " + keyId + " FROM dual WHERE NOT EXISTS ("
+						+ ri.seq + ", " + table.tableId + ", " + stringAddition + keyId +stringAddition + " FROM dual WHERE NOT EXISTS ("
 								+ " SELECT 1 FROM " + tableID + " WHERE SEQ = " + ri.seq + " AND TABLE_ID = " + table.tableId
-								+ " AND KEY_ID = " + keyId + " )";
+								+ " AND KEY_ID = " + stringAddition + keyId + stringAddition + " )";
 				System.out.println("Executing: " + ri);
 				st.executeQuery(query);
 				conn.commit();
@@ -276,14 +270,66 @@ public class DatabaseInteraction {
 		}
 		
 	}
-	
+
+	public void saveFixedStatementsToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
+		Set<Pair<Table, Object>> querySet = new HashSet<>(queryResult);
+		// System.out.println("QuerySet: " + querySet);
+		boolean errorRidden = false;
+		System.out.println("Executing: " + ri);
+		for (Pair<Table, Object> tuple : querySet) {
+			Table table = tuple.getFirst();
+			Object keyId = tuple.getSecond();
+			// System.out.println("Table: " + table.name);
+			// System.out.println("KeyID: " + keyId);
+			String queryTupleTableID = "_PROBLEMATIC";
+			String stringTableID = "STRING" + queryTupleTableID;
+			String numericTableID = "NUMERIC" + queryTupleTableID;
+			String tableID = numericTableID;
+			// System.out.println("String tableID: " + stringTableID);
+			// System.out.println("String tableID: " + numericTableID);
+			try {
+				Statement st = conn.createStatement();
+				if (table.keyColumn.attributeType == 3) {
+					// means that the key of the table is of type String
+					tableID = stringTableID;
+				}
+				// String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID,
+				// KEY_ID ) VALUES ("
+				// + ri.seq + ", " + table.tableId + ", " + keyId + " )";
+				String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) SELECT  " + ri.seq + ", "
+						+ table.tableId + ", " + keyId + " FROM dual WHERE NOT EXISTS (" + " SELECT 1 FROM " + tableID
+						+ " WHERE SEQ = " + ri.seq + " AND TABLE_ID = " + table.tableId + " AND KEY_ID = " + keyId
+						+ " )";
+				if (tableID.equals(stringTableID)) {
+					query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) SELECT  " + ri.seq + ", "
+							+ table.tableId + ", \'" + keyId + "\' FROM dual WHERE NOT EXISTS (" + " SELECT 1 FROM "
+							+ tableID + " WHERE SEQ = " + ri.seq + " AND TABLE_ID = " + table.tableId
+							+ " AND KEY_ID = \'" + keyId + "\' )";
+				}
+				st.executeQuery(query);
+				conn.commit();
+			} catch (Exception e) {
+				e.printStackTrace();
+				errorRidden = true;
+
+				// FIXME should we really break here?
+				break;
+			}
+		}
+		if (errorRidden) {
+			System.out.println("SEQ: " + ri);
+			//
+		} else {
+
+		}
+	}
+
 	public void saveProblematicSequencesDB(RowInfo ri) {
 		try {
 			Statement st = conn.createStatement();
 			String tableID = "QRS_PROBLEMATIC_SEQUENCES";
-			String query = "INSERT INTO " + tableID + " ( SEQ ) SELECT  "
-					+ ri.seq + " FROM dual WHERE NOT EXISTS ( SELECT 1 FROM " + tableID
-					+ " WHERE SEQ = " + ri.seq + " )";
+			String query = "INSERT INTO " + tableID + " ( SEQ ) SELECT  " + ri.seq
+					+ " FROM dual WHERE NOT EXISTS ( SELECT 1 FROM " + tableID + " WHERE SEQ = " + ri.seq + " )";
 			System.out.println("Saving ProblematicSequence: " + ri);
 			st.executeQuery(query);
 			conn.commit();
@@ -292,6 +338,5 @@ public class DatabaseInteraction {
 			e.printStackTrace();
 		}
 	}
-		
-		
+
 }
