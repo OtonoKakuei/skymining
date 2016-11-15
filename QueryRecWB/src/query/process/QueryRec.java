@@ -1,3 +1,4 @@
+package query.process;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,9 +36,9 @@ public class QueryRec {
 			List<RowInfo> relevantRows = dbI.getAllRelevantStatements(opt);
 			System.out.println("Number of relevant rows: " + relevantRows.size());
 			for (RowInfo rowInfo : relevantRows) {
-				if (rowInfo.seq < 272354) {
-					continue;
-				}
+//				if (rowInfo.seq < 272354) {
+//					continue;
+//				}
 				try {
 					System.out.println("SEQ: " + rowInfo.seq);
 					DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password);
@@ -46,7 +47,7 @@ public class QueryRec {
 					// now we have tables in the from clause of the
 					// statement
 					// for each table we now keyColumn
-					Map<String, Table> tables = SideClass.getTablesWithKeysFromTheFromItemsOfStatement(fi, opt);
+					Map<String, Table> tables = QueryUtil.getTablesWithKeysFromTheFromItemsOfStatement(fi, opt);
 					
 					// for each query from query log
 					// perform a query to the DB (SkyServer)
@@ -88,7 +89,7 @@ public class QueryRec {
 					// now we have tables in the from clause of the
 					// statement
 					// for each table we now keyColumn
-					Map<String, Table> tables = SideClass.getTablesWithKeysFromTheFromItemsOfStatement(fi, opt);
+					Map<String, Table> tables = QueryUtil.getTablesWithKeysFromTheFromItemsOfStatement(fi, opt);
 					
 					// for each query from query log
 					// perform a query to the DB (SkyServer)

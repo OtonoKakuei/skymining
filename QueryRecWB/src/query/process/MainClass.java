@@ -1,3 +1,4 @@
+package query.process;
 import com.beust.jcommander.JCommander;
 
 import largespace.business.OptionsOwn;
@@ -25,9 +26,10 @@ public class MainClass {
 		// on preprocessing step we fill this internal database
 
 		case 0:
-			//uncomment the one that's not needed
-			rec.preprocess(opt);
-//			rec.processProblematicSequences(opt);
+			//DO NOT UNCOMMENT PREPROCESS!!
+			//this has been completed already, so let's focus on the other stuff.
+//			rec.preprocess(opt);
+			rec.processProblematicSequences(opt);
 			break;
 		case 1:
 			rec.recommend(opt);
