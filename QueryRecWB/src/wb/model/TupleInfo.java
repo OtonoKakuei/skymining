@@ -6,15 +6,21 @@ public class TupleInfo {
 	private Long sequence;
 	private Long tableId;
 	private Long keyId;
+	private boolean isKeyString;
 	
-	public TupleInfo(ResultSet resultSet) {
+	public TupleInfo(ResultSet resultSet, boolean isKeyString) {
 		try {
 			sequence = resultSet.getLong("SEQ");
 			tableId = resultSet.getLong("TABLE_ID");
 			keyId = resultSet.getLong("KEY_ID");
+			this.isKeyString = isKeyString;
 		} catch (Exception ex) {
 			System.out.println("Exception in Getting data, seq = " + sequence);
 		}
+	}
+	
+	public boolean isKeyString() {
+		return isKeyString;
 	}
 	
 	public Long getSequence() {
