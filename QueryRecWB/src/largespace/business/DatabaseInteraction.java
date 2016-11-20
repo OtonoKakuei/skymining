@@ -368,7 +368,7 @@ public class DatabaseInteraction {
 		knownQueries.addAll(getAllNumericTupleSequences());
 		
 		for (Long seq : getAllSequencesFromTable(opt.logTable)) {
-			if (knownQueries.contains(seq)) {
+			if (!knownQueries.contains(seq)) {
 				result.add(seq);
 			}
 		}
