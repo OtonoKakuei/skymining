@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -15,6 +16,9 @@ import aima.core.util.datastructure.Pair;
 import wb.model.TupleInfo;
 
 public class DatabaseInteraction {
+	private static final String QRS_QUERY_TUPLE_STRING = "QRS_QUERY_TUPLE_STRING";
+	private static final String QRS_QUERY_TUPLE_NUMERIC = "QRS_QUERY_TUPLE_NUMERIC";
+	private static final String QRS_PROBLEMATIC_SEQUENCES = "QRS_PROBLEMATIC_SEQUENCES";
 	public static Connection conn;
 
 	public static void establishConnection(String serverAddress, String username, String password) {
@@ -55,7 +59,7 @@ public class DatabaseInteraction {
 	// tableLastSeq - table name where last processed seq stored
 	// tableLog - table name where the log stored
 	public List<Long> getlastSeq(String tableLastSeq, String tableLog) {
-		List<Long> list = new ArrayList<Long>();
+		List<Long> list = new ArrayList<>();
 		Long lastSeq = new Long(0);
 		Long maxVal = new Long(0);
 		try {
@@ -106,7 +110,7 @@ public class DatabaseInteraction {
 	}
 
 	public HashMap<String, Table> getTablesKeys() {
-		HashMap<String, Table> map = new HashMap<String, Table>();
+		HashMap<String, Table> map = new HashMap<>();
 		try {
 
 			Statement st = conn.createStatement();
@@ -128,7 +132,7 @@ public class DatabaseInteraction {
 	}
 
 	public List<RowInfo> getNextNStatements(Long lastSeq, Long nextSeq, OptionsOwn opt) {
-		List<RowInfo> res = new ArrayList<RowInfo>();
+		List<RowInfo> res = new ArrayList<>();
 		try {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
@@ -147,7 +151,7 @@ public class DatabaseInteraction {
 	}
 
 	public List<RowInfo> getAllRelevantStatements(OptionsOwn opt) {
-		List<RowInfo> res = new ArrayList<RowInfo>();
+		List<RowInfo> res = new ArrayList<>();
 		try {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
@@ -163,15 +167,15 @@ public class DatabaseInteraction {
 		}
 		return res;
 	}
-
-	public List<RowInfo> getAllProblematicStatements(OptionsOwn opt) {
-		List<RowInfo> res = new ArrayList<RowInfo>();
+	
+	private List<RowInfo> getAllStatementsFromTable(OptionsOwn opt, String tableName) {
+		List<RowInfo> res = new ArrayList<>();
 		try {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
 			ResultSet rs = null;
 			rs = st.executeQuery("select a.seq, NRROWS, statement from " + opt.logTable
-					+ " a join QRS_PROBLEMATIC_SEQUENCES b on " + "a.seq = b.seq order by seq");
+					+ " a join + " + tableName + " b on " + "a.seq = b.seq order by seq");
 			while (rs.next()) {
 				RowInfo ri = new RowInfo(rs, true);
 				res.add(ri);
@@ -181,17 +185,64 @@ public class DatabaseInteraction {
 		}
 		return res;
 	}
-
-	public static List<TupleInfo> getAllTuples(long seq) {
-		List<TupleInfo> res = new ArrayList<>();
+	
+	private Set<Long> getAllSequencesFromTable(String tableName) {
+		Set<Long> res = new HashSet<>();
 		try {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
 			ResultSet rs = null;
+			rs = st.executeQuery("select distince seq from " + tableName);
+			while (rs.next()) {
+				res.add(rs.getLong("SEQ"));
+			}
+		} catch (Exception ex) {
+
+		}
+		return res;
+	}
+
+	public List<RowInfo> getAllProblematicStatements(OptionsOwn opt) {
+		return getAllStatementsFromTable(opt, QRS_PROBLEMATIC_SEQUENCES);
+	}
+	
+	public Set<Long> getAllStringTupleSequences() {
+		return getAllSequencesFromTable(QRS_QUERY_TUPLE_STRING);
+	}
+	
+	public Set<Long> getAllNumericTupleSequences() {
+		return getAllSequencesFromTable(QRS_QUERY_TUPLE_NUMERIC);
+	}
+	
+	public Set<Long> getAllProblematicSequences() {
+		return getAllSequencesFromTable(QRS_PROBLEMATIC_SEQUENCES);
+	}
+	
+	public Set<Long> transformRowIntoToSequences(Collection<RowInfo> rowInfos) {
+		Set<Long> sequences = new HashSet<>();
+		for (RowInfo rowInfo : rowInfos) {
+			sequences.add(rowInfo.seq);
+		}
+		return sequences;
+	}
+
+	public static Set<TupleInfo> getAllTuples(long seq) {
+		Set<TupleInfo> res = new HashSet<>();
+		try {
+			Statement st = conn.createStatement();
+			st.setFetchSize(50000);
+			ResultSet rs = null;
+			//NUMERIC
 			rs = st.executeQuery("select seq, table_id, key_id from QRS_QUERY_TUPLE_NUMERIC a where a.seq = " + seq
 					+ " order by seq");
 			while (rs.next()) {
-				res.add(new TupleInfo(rs));
+				res.add(new TupleInfo(rs, false));
+			}
+			//STRING
+			rs = st.executeQuery("select seq, table_id, key_id from QRS_QUERY_TUPLE_STRING a where a.seq = " + seq
+					+ " order by seq");
+			while (rs.next()) {
+				res.add(new TupleInfo(rs, true));
 			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -205,8 +256,12 @@ public class DatabaseInteraction {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
 			ResultSet resultSet = null;
+			String tableName = QRS_QUERY_TUPLE_NUMERIC;
+			if (tuple.isKeyString()) {
+				tableName = QRS_QUERY_TUPLE_STRING;
+			}
 			resultSet = st
-					.executeQuery("select seq from QRS_QUERY_TUPLE_NUMERIC a where not a.seq = " + tuple.getSequence()
+					.executeQuery("select seq from " + tableName + " a where not a.seq = " + tuple.getSequence()
 							+ "" + " and a.table_id = " + tuple.getTableId() + " and a.key_id = " + tuple.getKeyId());
 			while (resultSet.next()) {
 				similarSequences.add(resultSet.getLong("SEQ"));
@@ -217,7 +272,7 @@ public class DatabaseInteraction {
 		return similarSequences;
 	}
 
-	public void setlastSeq(Long lastSeq, String tableLastSeq) {
+	public void setLastSeq(Long lastSeq, String tableLastSeq) {
 		try {
 			Statement st = conn.createStatement();
 			ResultSet rs = null;
@@ -293,7 +348,7 @@ public class DatabaseInteraction {
 	public void saveProblematicSequencesDB(RowInfo ri) {
 		try {
 			Statement st = conn.createStatement();
-			String tableID = "QRS_PROBLEMATIC_SEQUENCES";
+			String tableID = QRS_PROBLEMATIC_SEQUENCES;
 			String query = "INSERT INTO " + tableID + " ( SEQ ) SELECT  " + ri.seq
 					+ " FROM dual WHERE NOT EXISTS ( SELECT 1 FROM " + tableID + " WHERE SEQ = " + ri.seq + " )";
 			System.out.println("Saving ProblematicSequence: " + ri);
@@ -302,6 +357,23 @@ public class DatabaseInteraction {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
+	}
+	
+	public Set<Long> getStrayQueries(OptionsOwn opt) {
+		Set<Long> result = new HashSet<>();
+		
+		Set<Long> knownQueries = new HashSet<>();
+		knownQueries.addAll(getAllProblematicSequences());
+		knownQueries.addAll(getAllStringTupleSequences());
+		knownQueries.addAll(getAllNumericTupleSequences());
+		
+		for (Long seq : getAllSequencesFromTable(opt.logTable)) {
+			if (knownQueries.contains(seq)) {
+				result.add(seq);
+			}
+		}
+		
+		return result;
 	}
 
 }
