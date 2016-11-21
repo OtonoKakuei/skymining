@@ -22,6 +22,12 @@ public class DatabaseInteraction {
 	private static final String QRS_PROBLEMATIC_SEQUENCES = "QRS_PROBLEMATIC_SEQUENCES";
 	public static Connection conn;
 	
+	private static final DatabaseInteraction INSTANCE = new DatabaseInteraction();
+	
+	private DatabaseInteraction() {
+		
+	}
+	
 	public static void establishConnection(String serverAddress, String username, String password) {
 		// Establish connection
 		try {
@@ -54,7 +60,7 @@ public class DatabaseInteraction {
 		}
 	}
 
-	public HashMap<String, Table> getTablesKeys() {
+	public static HashMap<String, Table> getTablesKeys() {
 		HashMap<String, Table> map = new HashMap<>();
 		try {
 			Statement st = conn.createStatement();
@@ -75,7 +81,7 @@ public class DatabaseInteraction {
 		return map;
 	}
 
-	public List<RowInfo> getAllRelevantStatements(OptionsOwn opt) {
+	public static List<RowInfo> getAllRelevantStatements(OptionsOwn opt) {
 		List<RowInfo> res = new ArrayList<>();
 		try {
 			Statement st = conn.createStatement();
@@ -147,23 +153,23 @@ public class DatabaseInteraction {
 		return res;
 	}
 
-	public List<RowInfo> getAllProblematicStatements(OptionsOwn opt) {
-		return getAllStatementsFromTable(opt, QRS_PROBLEMATIC_SEQUENCES);
+	public static List<RowInfo> getAllProblematicStatements(OptionsOwn opt) {
+		return INSTANCE.getAllStatementsFromTable(opt, QRS_PROBLEMATIC_SEQUENCES);
 	}
 	
-	public Set<Long> getAllStringTupleSequences() {
-		return getAllSequencesFromTable(QRS_QUERY_TUPLE_STRING);
+	public static Set<Long> getAllStringTupleSequences() {
+		return INSTANCE.getAllSequencesFromTable(QRS_QUERY_TUPLE_STRING);
 	}
 	
-	public Set<Long> getAllNumericTupleSequences() {
-		return getAllSequencesFromTable(QRS_QUERY_TUPLE_NUMERIC);
+	public static Set<Long> getAllNumericTupleSequences() {
+		return INSTANCE.getAllSequencesFromTable(QRS_QUERY_TUPLE_NUMERIC);
 	}
 	
-	public Set<Long> getAllProblematicSequences() {
-		return getAllSequencesFromTable(QRS_PROBLEMATIC_SEQUENCES);
+	public static Set<Long> getAllProblematicSequences() {
+		return INSTANCE.getAllSequencesFromTable(QRS_PROBLEMATIC_SEQUENCES);
 	}
 	
-	public Set<Long> transformRowIntoToSequences(Collection<RowInfo> rowInfos) {
+	public static Set<Long> transformRowIntoToSequences(Collection<RowInfo> rowInfos) {
 		Set<Long> sequences = new HashSet<>();
 		for (RowInfo rowInfo : rowInfos) {
 			sequences.add(rowInfo.seq);
@@ -217,7 +223,7 @@ public class DatabaseInteraction {
 		return similarSequences;
 	}
 
-	public boolean saveTableToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
+	public static boolean saveTableToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
 		Set<Pair<Table, Object>> querySet = new HashSet<>(queryResult);
 		boolean errorRidden = false;
 		System.out.println("Executing: " + ri);
@@ -254,7 +260,7 @@ public class DatabaseInteraction {
 
 	}
 
-	public void saveFixedStatementsToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
+	public static void saveFixedStatementsToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
 		boolean errorRidden = saveTableToDB(queryResult, ri);
 		if (errorRidden) {
 			System.out.println("ERROR SEQ: " + ri);
@@ -271,7 +277,7 @@ public class DatabaseInteraction {
 		}
 	}
 
-	public void saveProblematicSequencesDB(RowInfo ri) {
+	public static void saveProblematicSequencesDB(RowInfo ri) {
 		try {
 			Statement st = conn.createStatement();
 			String tableID = QRS_PROBLEMATIC_SEQUENCES;
@@ -285,7 +291,7 @@ public class DatabaseInteraction {
 		}
 	}
 	
-	public Set<Long> getStrayQueries(OptionsOwn opt) {
+	public static Set<Long> getStrayQueries(OptionsOwn opt) {
 		Set<Long> result = new HashSet<>();
 		
 		Set<Long> knownQueries = new HashSet<>();
@@ -293,7 +299,7 @@ public class DatabaseInteraction {
 		knownQueries.addAll(getAllStringTupleSequences());
 		knownQueries.addAll(getAllNumericTupleSequences());
 		
-		for (Long seq : getAllSequencesFromTable(opt.logTable)) {
+		for (Long seq : INSTANCE.getAllSequencesFromTable(opt.logTable)) {
 			if (!knownQueries.contains(seq)) {
 				result.add(seq);
 			}
@@ -302,7 +308,7 @@ public class DatabaseInteraction {
 		return result;
 	}
 
-	public String getPrimaryColumnName(String tableName) {
+	public static String getPrimaryColumnName(String tableName) {
 		String primaryColumnName = null;
 		try {
 			Statement st = conn.createStatement();

@@ -16,13 +16,12 @@ import net.sf.jsqlparser.statement.select.FromItem;
 
 public class QueryRec {
 	private OptionsOwn opt;
-	private DatabaseInteraction dbI = new DatabaseInteraction();
 
 	public QueryRec(OptionsOwn opt_) {
 		opt = opt_;
 		// dbI = new DatabaseInteraction();
 		DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password);
-		opt.tablesWithKeys = dbI.getTablesKeys();
+		opt.tablesWithKeys = DatabaseInteraction.getTablesKeys();
 	}
 
 	public void preprocess(OptionsOwn opt) {
@@ -35,7 +34,7 @@ public class QueryRec {
 		try {
 			// FIXME check whether this has to be done several times or not,
 			// because of disconnections, etc.
-			List<RowInfo> relevantRows = dbI.getAllRelevantStatements(opt);
+			List<RowInfo> relevantRows = DatabaseInteraction.getAllRelevantStatements(opt);
 			System.out.println("Number of relevant rows: " + relevantRows.size());
 			for (RowInfo rowInfo : relevantRows) {
 				// if (rowInfo.seq < 272354) {
@@ -58,12 +57,12 @@ public class QueryRec {
 					List<Pair<Table, Object>> queryResult = internalDB.sendGetResultFromQuery(rowInfo,
 							(HashMap<String, Table>) tables);
 					// store data to our internal DB
-					dbI.saveTableToDB(queryResult, rowInfo);
+					DatabaseInteraction.saveTableToDB(queryResult, rowInfo);
 
 				} catch (Exception e) {
 					e.printStackTrace();
 					System.err.println("Saving Problematic Row: " + rowInfo);
-					dbI.saveProblematicSequencesDB(rowInfo);
+					DatabaseInteraction.saveProblematicSequencesDB(rowInfo);
 				}
 			}
 		} catch (Throwable t) {
@@ -82,7 +81,7 @@ public class QueryRec {
 		try {
 			// FIXME check whether this has to be done several times or not,
 			// because of disconnections, etc.
-			List<RowInfo> relevantRows = dbI.getAllProblematicStatements(opt);
+			List<RowInfo> relevantRows = DatabaseInteraction.getAllProblematicStatements(opt);
 			System.out.println("Number of relevant rows: " + relevantRows.size());
 
 			for (RowInfo rowInfo : relevantRows) {
@@ -106,7 +105,7 @@ public class QueryRec {
 					List<Pair<Table, Object>> queryResult = internalDB.sendGetResultFromQuery(rowInfo,
 							(HashMap<String, Table>) tables);
 					// store data to our internal DB
-					dbI.saveFixedStatementsToDB(queryResult, rowInfo);
+					DatabaseInteraction.saveFixedStatementsToDB(queryResult, rowInfo);
 
 				} catch (Exception e) {
 					e.printStackTrace();
