@@ -1,8 +1,10 @@
 package query.process;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import accessarea.AccessArea;
 import accessarea.AccessAreaExtraction;
@@ -116,6 +118,79 @@ public class QueryRec {
 			t.printStackTrace();
 		} finally {
 			// closeConnection();
+		}
+	}
+	
+	public void processStrayQueries(OptionsOwn opt) {
+		System.out.println("Processing Stray Queries");
+		AccessAreaExtraction extraction = new AccessAreaExtraction();
+		try {
+			// FIXME check whether this has to be done several times or not,
+			// because of disconnections, etc.
+			Set<RowInfo> relevantRows = new HashSet<>();
+			for (long seq : DatabaseInteraction.getStrayQueries(opt)) {
+				relevantRows.add(DatabaseInteraction.getRowInfo(opt, seq));
+			}
+			System.out.println("Number of relevant rows: " + relevantRows.size());
+
+			for (RowInfo rowInfo : relevantRows) {
+				try {
+//					if (rowInfo.seq != 8667166) {
+//						continue;
+//					}
+					System.out.println("SEQ: " + rowInfo.seq);
+					DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password);
+					//FIXME check correctness!
+					appendSelectPrimaryKeyToRowInfo(rowInfo);
+					AccessArea accessArea = extraction.extractAccessArea(rowInfo.statement);
+					List<FromItem> fi = accessArea.getFrom();
+					
+					Map<String, Table> tables = QueryUtil.getTablesWithKeysFromTheFromItemsOfStatement(fi, opt);
+
+					HttpURLConnectionExt internalDB = new HttpURLConnectionExt();
+					List<Pair<Table, Object>> queryResult = internalDB.sendGetResultFromQuery(rowInfo,
+							(HashMap<String, Table>) tables);
+					// store data to our internal DB
+					DatabaseInteraction.saveTableToDummyDB(queryResult, rowInfo, "_ROSINA");
+
+				} catch (Exception e) {
+					e.printStackTrace();
+					System.err.println("Saving Problematic Row: " + rowInfo);
+				}
+			}
+		} catch (Throwable t) {
+			t.printStackTrace();
+		} finally {
+			// closeConnection();
+		}
+	}
+	
+	private void appendSelectPrimaryKeyToRowInfo(RowInfo rowInfo) {
+		if (!rowInfo.statement.contains("*")) {
+			String fromStatement = rowInfo.fromStatement;
+			String[] fromTokens = fromStatement.split(",");
+			for (String fromToken : fromTokens) {
+				String[] tableTokens = fromToken.split("\\s+");
+				String tableName = tableTokens[0];
+				String tableAlias = null;
+				System.out.println("TableName: " + tableName);
+				if (tableTokens.length > 2) {
+					throw new IllegalArgumentException("Unexpected table tokens: " + tableTokens);
+				} else if (tableTokens.length == 2) {
+					tableAlias = tableTokens[1];
+				}
+				String primaryColumnName = DatabaseInteraction.getPrimaryColumnName(tableName);
+				if (primaryColumnName != null) {
+					String toAdd = primaryColumnName;
+					
+					if (tableAlias != null) {
+						toAdd = tableAlias + "." + toAdd;
+					} else {
+						toAdd = tableName + "." + toAdd;
+					}
+					rowInfo.statement = rowInfo.statement.replace(" from ", ", " + toAdd + " from ");
+				}
+			}
 		}
 	}
 
