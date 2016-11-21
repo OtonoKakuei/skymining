@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 public class RowInfo {
 
 	public String statement;
+	public String fromStatement;
 	public Long userSession;
 	public Long seq;
 	public Integer nrRows;
@@ -13,9 +14,10 @@ public class RowInfo {
 		try {
 			seq = rs.getLong("seq");
 			statement = rs.getString("STATEMENT");
+			fromStatement = rs.getString("FROM_STATEMENT");
 			userSession = rs.getLong("USERSESSION");
 		} catch (Exception ex) {
-			System.out.println("Exception in Gettimg data, seq = " + seq);
+			System.out.println("Exception in Getting data, seq = " + seq);
 		}
 	}
 
@@ -25,6 +27,7 @@ public class RowInfo {
 				// from recordset seq, NRROWS, statement
 				seq = rs.getLong("seq");
 				statement = rs.getString("STATEMENT");
+				fromStatement = rs.getString("FROM_STATEMENT");
 				nrRows = rs.getInt("NRROWS");
 			} catch (Exception ex) {
 				System.out.println("Exception in Gettimg data, seq = " + seq);
