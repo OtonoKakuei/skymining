@@ -21,7 +21,7 @@ public class DatabaseInteraction {
 	private static final String QRS_QUERY_TUPLE_NUMERIC = "QRS_QUERY_TUPLE_NUMERIC";
 	private static final String QRS_PROBLEMATIC_SEQUENCES = "QRS_PROBLEMATIC_SEQUENCES";
 	public static Connection conn;
-
+	
 	public static void establishConnection(String serverAddress, String username, String password) {
 		// Establish connection
 		try {
@@ -30,7 +30,6 @@ public class DatabaseInteraction {
 			// e.printStackTrace();
 		}
 		try {
-
 			// startTime = new Date().getTime();
 			conn = DriverManager.getConnection("jdbc:oracle:thin:@" + serverAddress, username, password);
 			// conn.close();
@@ -44,7 +43,6 @@ public class DatabaseInteraction {
 	}
 
 	public static void closeConnection() {
-
 		try {
 			// endTime = new Date().getTime();
 			// System.out.println(endTime-startTime + " milliseconds");
@@ -56,64 +54,9 @@ public class DatabaseInteraction {
 		}
 	}
 
-	// get the last Seq processed from query log
-	// tableLastSeq - table name where last processed seq stored
-	// tableLog - table name where the log stored
-	public List<Long> getlastSeq(String tableLastSeq, String tableLog) {
-		List<Long> list = new ArrayList<>();
-		Long lastSeq = new Long(0);
-		Long maxVal = new Long(0);
-		try {
-			Statement st = conn.createStatement();
-			ResultSet rs = null;
-
-			rs = st.executeQuery("select count(*) from " + tableLastSeq);
-			Integer rowCounts = 0;
-			if (rs.next()) {
-				rowCounts = rs.getInt(1);
-			}
-
-			if (rowCounts == 0) {
-				st = conn.createStatement();
-				rs = null;
-
-				rs = st.executeQuery("select min(seq), max(seq)  from " + tableLog);
-
-				if (rs.next()) {
-					lastSeq = rs.getLong(1);
-					maxVal = rs.getLong(2);
-				}
-
-				st = conn.createStatement();
-				rs = null;
-				rs = st.executeQuery("INSERT INTO " + tableLastSeq + " (LAST_SEQ, FINAL_SEQ  ) VALUES  ("
-						+ lastSeq.toString() + ", " + maxVal.toString() + " )");
-			} else {
-				// FIXME check if rs is closed correctly
-				rs.close();
-				rs = st.executeQuery("SELECT LAST_SEQ, FINAL_SEQ FROM " + tableLastSeq);
-
-				if (rs.next()) {
-					lastSeq = rs.getLong(1);
-					maxVal = rs.getLong(2);
-				}
-			}
-
-			conn.commit();
-			rs.close();
-			st.close();
-			list.add(lastSeq);
-			list.add(maxVal);
-		} catch (Exception ex) {
-			System.out.println("Exception in GetlastSeq, ex = " + ex.getMessage());
-		}
-		return list;
-	}
-
 	public HashMap<String, Table> getTablesKeys() {
 		HashMap<String, Table> map = new HashMap<>();
 		try {
-
 			Statement st = conn.createStatement();
 			ResultSet rs = null;
 
@@ -127,28 +70,9 @@ public class DatabaseInteraction {
 			rs.close();
 			st.close();
 		} catch (Exception ex) {
-
+			ex.printStackTrace();
 		}
 		return map;
-	}
-
-	public List<RowInfo> getNextNStatements(Long lastSeq, Long nextSeq, OptionsOwn opt) {
-		List<RowInfo> res = new ArrayList<>();
-		try {
-			Statement st = conn.createStatement();
-			st.setFetchSize(50000);
-			ResultSet rs = null;
-			rs = st.executeQuery("select seq, NRROWS, statement from " + opt.logTable + " where seq > "
-					+ lastSeq.toString() + " and seq <= " + nextSeq.toString()
-					+ "AND LOWER(statement) NOT LIKE '%create table%' AND LOWER(statement) NOT LIKE 'declare %' order by seq");
-			while (rs.next()) {
-				RowInfo ri = new RowInfo(rs, true);
-				res.add(ri);
-			}
-		} catch (Exception ex) {
-
-		}
-		return res;
 	}
 
 	public List<RowInfo> getAllRelevantStatements(OptionsOwn opt) {
@@ -157,14 +81,14 @@ public class DatabaseInteraction {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
 			ResultSet rs = null;
-			rs = st.executeQuery("select seq, NRROWS, statement from " + opt.logTable + " where nrrows > 0 "
+			rs = st.executeQuery("select seq, NRROWS, statement, from_statement from " + opt.logTable + " where nrrows > 0 "
 					+ "AND LOWER(statement) NOT LIKE '%create table%' AND LOWER(statement) NOT LIKE 'declare %' order by seq");
 			while (rs.next()) {
 				RowInfo ri = new RowInfo(rs, true);
 				res.add(ri);
 			}
 		} catch (Exception ex) {
-
+			ex.printStackTrace();
 		}
 		return res;
 	}
@@ -175,16 +99,36 @@ public class DatabaseInteraction {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
 			ResultSet rs = null;
-			rs = st.executeQuery("select a.seq, NRROWS, statement from " + opt.logTable
+			rs = st.executeQuery("select a.seq, NRROWS, statement, from_statement from " + opt.logTable
 					+ " a join + " + tableName + " b on " + "a.seq = b.seq order by seq");
 			while (rs.next()) {
 				RowInfo ri = new RowInfo(rs, true);
 				res.add(ri);
 			}
 		} catch (Exception ex) {
-
+			ex.printStackTrace();
 		}
 		return res;
+	}
+	
+	public static RowInfo getRowInfo(OptionsOwn opt, long seq) {
+		RowInfo rowInfo = null;
+		try {
+			Statement st = conn.createStatement();
+			st.setFetchSize(50000);
+			ResultSet rs = null;
+			rs = st.executeQuery("select a.seq, NRROWS, statement, from_statement from " + opt.logTable
+					+ " a where a.seq = " + seq);
+			while (rs.next()) {
+				if (rowInfo != null) {
+					throw new IllegalArgumentException("RowInfo has already been assigned to a value. This should not happen.");
+				}
+				rowInfo = new RowInfo(rs, true);
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return rowInfo;
 	}
 	
 	private Set<Long> getAllSequencesFromTable(String tableName) {
@@ -193,12 +137,12 @@ public class DatabaseInteraction {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
 			ResultSet rs = null;
-			rs = st.executeQuery("select distince seq from " + tableName);
+			rs = st.executeQuery("select distinct seq from " + tableName);
 			while (rs.next()) {
 				res.add(rs.getLong("SEQ"));
 			}
 		} catch (Exception ex) {
-
+			ex.printStackTrace();
 		}
 		return res;
 	}
@@ -234,13 +178,13 @@ public class DatabaseInteraction {
 			st.setFetchSize(50000);
 			ResultSet rs = null;
 			//NUMERIC
-			rs = st.executeQuery("select seq, table_id, key_id from QRS_QUERY_TUPLE_NUMERIC a where a.seq = " + seq
+			rs = st.executeQuery("select seq, table_id, key_id from " + QRS_QUERY_TUPLE_NUMERIC + " a where a.seq = " + seq
 					+ " order by seq");
 			while (rs.next()) {
 				res.add(new TupleInfo(rs, false));
 			}
 			//STRING
-			rs = st.executeQuery("select seq, table_id, key_id from QRS_QUERY_TUPLE_STRING a where a.seq = " + seq
+			rs = st.executeQuery("select seq, table_id, key_id from " + QRS_QUERY_TUPLE_STRING + " a where a.seq = " + seq
 					+ " order by seq");
 			while (rs.next()) {
 				res.add(new TupleInfo(rs, true));
@@ -273,22 +217,6 @@ public class DatabaseInteraction {
 		return similarSequences;
 	}
 
-	public void setLastSeq(Long lastSeq, String tableLastSeq) {
-		try {
-			Statement st = conn.createStatement();
-			ResultSet rs = null;
-			System.out.println("LastSeq: " + lastSeq.toString());
-			rs = st.executeQuery("UPDATE " + tableLastSeq + " SET LAST_SEQ = " + lastSeq.toString());
-
-			conn.commit();
-			rs.close();
-			st.close();
-		} catch (Exception ex) {
-			System.out.println("Exception in GetlastSeq, ex = " + ex.getMessage());
-		}
-
-	}
-
 	public boolean saveTableToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
 		Set<Pair<Table, Object>> querySet = new HashSet<>(queryResult);
 		boolean errorRidden = false;
@@ -296,16 +224,13 @@ public class DatabaseInteraction {
 		for (Pair<Table, Object> tuple : querySet) {
 			Table table = tuple.getFirst();
 			Object keyId = tuple.getSecond();
-			String queryTupleTableID = "QRS_QUERY_TUPLE";
-			String stringTableID = queryTupleTableID + "_STRING";
 			String stringAddition = "";
-			String numericTableID = queryTupleTableID + "_NUMERIC";
-			String tableID = numericTableID;
+			String tableID = QRS_QUERY_TUPLE_NUMERIC;
 			try {
 				Statement st = conn.createStatement();
 				if (table.keyColumn.attributeType == 3) {
 					// means that the key of the table is of type String
-					tableID = stringTableID;
+					tableID = QRS_QUERY_TUPLE_STRING;
 					stringAddition = "\'";
 				}
 				String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) SELECT  " + ri.seq + ", "
@@ -396,4 +321,5 @@ public class DatabaseInteraction {
 		}
 		return primaryColumnName;
 	}
+
 }
