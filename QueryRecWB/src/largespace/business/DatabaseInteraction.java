@@ -257,7 +257,42 @@ public class DatabaseInteraction {
 			saveProblematicSequencesDB(ri);
 		}
 		return errorRidden;
-
+	}
+	
+	public static boolean saveTableToDummyDB(List<Pair<Table, Object>> queryResult, RowInfo ri, String dummyName) {
+		Set<Pair<Table, Object>> querySet = new HashSet<>(queryResult);
+		boolean errorRidden = false;
+		System.out.println("Executing: " + ri);
+		for (Pair<Table, Object> tuple : querySet) {
+			Table table = tuple.getFirst();
+			Object keyId = tuple.getSecond();
+			String stringAddition = "";
+			String tableID = QRS_QUERY_TUPLE_NUMERIC + dummyName;
+			try {
+				Statement st = conn.createStatement();
+				if (table.keyColumn.attributeType == 3) {
+					// means that the key of the table is of type String
+					tableID = QRS_QUERY_TUPLE_STRING + dummyName;
+					stringAddition = "\'";
+				}
+				String query = "INSERT INTO " + tableID + " ( SEQ, TABLE_ID, KEY_ID ) SELECT  " + ri.seq + ", "
+						+ table.tableId + ", " + stringAddition + keyId + stringAddition
+						+ " FROM dual WHERE NOT EXISTS (" + " SELECT 1 FROM " + tableID + " WHERE SEQ = " + ri.seq
+						+ " AND TABLE_ID = " + table.tableId + " AND KEY_ID = " + stringAddition + keyId
+						+ stringAddition + " )";
+				st.executeQuery(query);
+				conn.commit();
+			} catch (Exception e) {
+				e.printStackTrace();
+				errorRidden = true;
+				// FIXME should we really break here?
+				break;
+			}
+		}
+		if (errorRidden) {
+			saveProblematicSequencesDB(ri);
+		}
+		return errorRidden;
 	}
 
 	public static void saveFixedStatementsToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
