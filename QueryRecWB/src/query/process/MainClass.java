@@ -29,7 +29,8 @@ public class MainClass {
 			//DO NOT UNCOMMENT PREPROCESS!!
 			//this has been completed already, so let's focus on the other stuff.
 //			rec.preprocess(opt);
-			rec.processProblematicSequences(opt);
+//			rec.processProblematicSequences(opt);
+			rec.processStrayQueries(opt);
 			break;
 		case 1:
 			rec.recommend(opt);

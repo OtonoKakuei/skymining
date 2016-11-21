@@ -93,6 +93,8 @@ public class DatabaseInteraction {
 				RowInfo ri = new RowInfo(rs, true);
 				res.add(ri);
 			}
+			rs.close();
+			st.close();
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
@@ -111,6 +113,8 @@ public class DatabaseInteraction {
 				RowInfo ri = new RowInfo(rs, true);
 				res.add(ri);
 			}
+			rs.close();
+			st.close();
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
@@ -131,6 +135,8 @@ public class DatabaseInteraction {
 				}
 				rowInfo = new RowInfo(rs, true);
 			}
+			rs.close();
+			st.close();
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
@@ -147,6 +153,8 @@ public class DatabaseInteraction {
 			while (rs.next()) {
 				res.add(rs.getLong("SEQ"));
 			}
+			rs.close();
+			st.close();
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
@@ -195,6 +203,8 @@ public class DatabaseInteraction {
 			while (rs.next()) {
 				res.add(new TupleInfo(rs, true));
 			}
+			rs.close();
+			st.close();
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
@@ -217,6 +227,8 @@ public class DatabaseInteraction {
 			while (resultSet.next()) {
 				similarSequences.add(resultSet.getLong("SEQ"));
 			}
+			resultSet.close();
+			st.close();
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
@@ -246,6 +258,7 @@ public class DatabaseInteraction {
 						+ stringAddition + " )";
 				st.executeQuery(query);
 				conn.commit();
+				st.close();
 			} catch (Exception e) {
 				e.printStackTrace();
 				errorRidden = true;
@@ -282,6 +295,7 @@ public class DatabaseInteraction {
 						+ stringAddition + " )";
 				st.executeQuery(query);
 				conn.commit();
+				st.close();
 			} catch (Exception e) {
 				e.printStackTrace();
 				errorRidden = true;
@@ -306,6 +320,7 @@ public class DatabaseInteraction {
 				st = conn.createStatement();
 				st.executeQuery(deleteQuery);
 				conn.commit();
+				st.close();
 			} catch (SQLException e) {
 				e.printStackTrace();
 			}
@@ -321,6 +336,7 @@ public class DatabaseInteraction {
 			System.out.println("Saving ProblematicSequence: " + ri);
 			st.executeQuery(query);
 			conn.commit();
+			st.close();
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
@@ -357,6 +373,8 @@ public class DatabaseInteraction {
 				}
 				primaryColumnName = resultSet.getString("column_name");
 			}
+			resultSet.close();
+			st.close();
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
