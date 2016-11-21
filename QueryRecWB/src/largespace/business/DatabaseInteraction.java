@@ -16,6 +16,7 @@ import aima.core.util.datastructure.Pair;
 import wb.model.TupleInfo;
 
 public class DatabaseInteraction {
+	private static final String QRS_DB_SCHEMA = "QRS_DB_SCHEMA";
 	private static final String QRS_QUERY_TUPLE_STRING = "QRS_QUERY_TUPLE_STRING";
 	private static final String QRS_QUERY_TUPLE_NUMERIC = "QRS_QUERY_TUPLE_NUMERIC";
 	private static final String QRS_PROBLEMATIC_SEQUENCES = "QRS_PROBLEMATIC_SEQUENCES";
@@ -376,4 +377,23 @@ public class DatabaseInteraction {
 		return result;
 	}
 
+	public String getPrimaryColumnName(String tableName) {
+		String primaryColumnName = null;
+		try {
+			Statement st = conn.createStatement();
+			st.setFetchSize(50000);
+			ResultSet resultSet = st
+					.executeQuery("select column_name from " + QRS_DB_SCHEMA + " where table_name like \'%" + tableName + "%\' "
+							+ "and is_key is not null");
+			while (resultSet.next()) {
+				if (primaryColumnName != null) {
+					throw new IllegalArgumentException("ResultSet returns more than 1 result! Should not be possible.");
+				}
+				primaryColumnName = resultSet.getString("column_name");
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return primaryColumnName;
+	}
 }
