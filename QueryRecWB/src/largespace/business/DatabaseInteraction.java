@@ -160,7 +160,7 @@ public class DatabaseInteraction {
 		}
 		return res;
 	}
-
+	
 	public static List<RowInfo> getAllProblematicStatements(OptionsOwn opt) {
 		return INSTANCE.getAllStatementsFromTable(opt, QRS_PROBLEMATIC_SEQUENCES);
 	}
@@ -358,6 +358,23 @@ public class DatabaseInteraction {
 		
 		return result;
 	}
+	
+	public static Set<RowInfo> getStrayRowInfos(OptionsOwn opt) {
+		Set<RowInfo> result = new HashSet<>();
+		
+		Set<Long> knownQueries = new HashSet<>();
+		knownQueries.addAll(getAllProblematicSequences());
+		knownQueries.addAll(getAllStringTupleSequences());
+		knownQueries.addAll(getAllNumericTupleSequences());
+		
+		for (RowInfo rowInfo : getAllRelevantStatements(opt)) {
+			if (!knownQueries.contains(rowInfo.seq)) {
+				result.add(rowInfo);
+			}
+		}
+		
+		return result;
+	}
 
 	public static String getPrimaryColumnName(String tableName) {
 		String primaryColumnName = null;
@@ -365,10 +382,12 @@ public class DatabaseInteraction {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
 			ResultSet resultSet = st
-					.executeQuery("select column_name from " + QRS_DB_SCHEMA + " where table_name like \'%" + tableName + "%\' "
+					.executeQuery("select column_name from " + QRS_DB_SCHEMA + " where table_name = \'" + tableName + "\' "
 							+ "and is_key is not null");
 			while (resultSet.next()) {
 				if (primaryColumnName != null) {
+					System.out.println("CurrentColumnNAme: " + primaryColumnName);
+					System.out.println("New: " + resultSet.getString("column_name"));
 					throw new IllegalArgumentException("ResultSet returns more than 1 result! Should not be possible.");
 				}
 				primaryColumnName = resultSet.getString("column_name");

@@ -1,7 +1,7 @@
 package query.process;
 
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -127,10 +127,7 @@ public class QueryRec {
 		try {
 			// FIXME check whether this has to be done several times or not,
 			// because of disconnections, etc.
-			Set<RowInfo> relevantRows = new HashSet<>();
-			for (long seq : DatabaseInteraction.getStrayQueries(opt)) {
-				relevantRows.add(DatabaseInteraction.getRowInfo(opt, seq));
-			}
+			Set<RowInfo> relevantRows = DatabaseInteraction.getStrayRowInfos(opt);
 			System.out.println("Number of relevant rows: " + relevantRows.size());
 
 			for (RowInfo rowInfo : relevantRows) {
@@ -175,7 +172,11 @@ public class QueryRec {
 				String tableAlias = null;
 				System.out.println("TableName: " + tableName);
 				if (tableTokens.length > 2) {
-					throw new IllegalArgumentException("Unexpected table tokens: " + tableTokens);
+					if (tableTokens[1].equalsIgnoreCase("as")) {
+						tableAlias = tableTokens[2];
+					} else {
+						throw new IllegalArgumentException("Unexpected table tokens: " + Arrays.toString(tableTokens));
+					}
 				} else if (tableTokens.length == 2) {
 					tableAlias = tableTokens[1];
 				}
@@ -188,7 +189,9 @@ public class QueryRec {
 					} else {
 						toAdd = tableName + "." + toAdd;
 					}
+					System.out.println("Before: " + rowInfo.statement);
 					rowInfo.statement = rowInfo.statement.replace(" from ", ", " + toAdd + " from ");
+					System.out.println("After: " + rowInfo.statement);
 				}
 			}
 		}
