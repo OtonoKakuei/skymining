@@ -1,5 +1,8 @@
 package query.process;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -59,7 +62,7 @@ public class QueryRec {
 					List<Pair<Table, Object>> queryResult = internalDB.sendGetResultFromQuery(rowInfo,
 							(HashMap<String, Table>) tables);
 					// store data to our internal DB
-					DatabaseInteraction.saveTableToDB(queryResult, rowInfo);
+					DatabaseInteraction.saveTableToDBWithNoDuplicates(queryResult, rowInfo);
 
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -128,14 +131,17 @@ public class QueryRec {
 			// FIXME check whether this has to be done several times or not,
 			// because of disconnections, etc.
 			Set<RowInfo> relevantRows = DatabaseInteraction.getStrayRowInfos(opt);
-			System.out.println("Number of relevant rows: " + relevantRows.size());
-
+			
+			int relevantRowsSize = relevantRows.size();
+			System.out.println("Number of relevant rows: " + relevantRowsSize);
+			int i = 0;
 			for (RowInfo rowInfo : relevantRows) {
 				try {
 //					if (rowInfo.seq != 8667166) {
 //						continue;
 //					}
-					System.out.println("SEQ: " + rowInfo.seq);
+					i++;
+					System.out.println("Processing SEQ: " + rowInfo.seq + ", progress: " + i + "/" + relevantRowsSize);
 					DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password);
 					//FIXME check correctness!
 					appendSelectPrimaryKeyToRowInfo(rowInfo);
@@ -148,7 +154,9 @@ public class QueryRec {
 					List<Pair<Table, Object>> queryResult = internalDB.sendGetResultFromQuery(rowInfo,
 							(HashMap<String, Table>) tables);
 					// store data to our internal DB
-					DatabaseInteraction.saveTableToDummyDB(queryResult, rowInfo, "_ROSINA");
+//					DatabaseInteraction.saveTableToDB(queryResult, rowInfo);
+					System.out.println("Saving to dummy");
+					DatabaseInteraction.saveTableToDB(queryResult, rowInfo);
 
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -189,11 +197,35 @@ public class QueryRec {
 					} else {
 						toAdd = tableName + "." + toAdd;
 					}
-					System.out.println("Before: " + rowInfo.statement);
 					rowInfo.statement = rowInfo.statement.replace(" from ", ", " + toAdd + " from ");
-					System.out.println("After: " + rowInfo.statement);
 				}
 			}
+		}
+	}
+	
+	public void exportQueryTupleFrequencyToCSV() {
+		String filename = "Test3.csv";
+		DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password);
+		StringBuilder sb = new StringBuilder("");
+		System.out.println("Starting");
+		int i = 0;
+		List<Pair<Long, Integer>> queryTupleFrequencyPairs = DatabaseInteraction.getTupleFrequency();
+		for (Pair<Long, Integer> pair : queryTupleFrequencyPairs) {
+			System.out.println("processing: " + i++ + "/" + queryTupleFrequencyPairs.size());
+			String seqFrequency = pair.getFirst() + "," + pair.getSecond() + "\n";
+			System.out.print(seqFrequency);
+			sb.append(seqFrequency);
+		}
+		System.out.println("Done");
+		try {
+			File file = new File(filename);
+			System.out.println("AbsolutePath: " + file.getAbsolutePath());
+			FileWriter writer = new FileWriter(file);
+			writer.write(sb.toString());
+			writer.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 

@@ -30,7 +30,8 @@ public class MainClass {
 			//this has been completed already, so let's focus on the other stuff.
 //			rec.preprocess(opt);
 //			rec.processProblematicSequences(opt);
-			rec.processStrayQueries(opt);
+//			rec.exportQueryTupleFrequencyToCSV();
+//			rec.processStrayQueries(opt);
 			break;
 		case 1:
 			rec.recommend(opt);
