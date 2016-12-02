@@ -1,8 +1,9 @@
 package query.process;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
-import javafx.util.Pair;
 import largespace.business.DatabaseInteraction;
 import largespace.business.RowInfo;
 import wb.model.TupleInfo;
@@ -18,12 +19,12 @@ public class QuerySimilarityFunction {
 		return getSimilarSequences(rowInfo.seq);
 	}
 	
-	public static Set<Pair<Long, Double>> getSimilarQueries(long seq) {
-		Set<Pair<Long, Double>> similarQueries = new HashSet<>();
+	public static Map<Long, Double> getSimilarQueries(long seq) {
+		Map<Long, Double> similarQueries = new HashMap<>();
 	
 		Set<TupleInfo> allTuples = DatabaseInteraction.getAllTuples(seq);
 		for (Long similarSeq : getSimilarSequences(seq)) {
-			similarQueries.add(new Pair<>(similarSeq, INSTANCE.calculateSimilarity(allTuples, similarSeq)));
+			similarQueries.put(similarSeq, INSTANCE.calculateSimilarity(allTuples, similarSeq));
 		}
 		
 		return similarQueries;
