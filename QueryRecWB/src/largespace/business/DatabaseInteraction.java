@@ -249,7 +249,7 @@ public class DatabaseInteraction {
 		Set<TupleInfo> res = new HashSet<>();
 		try {
 			Statement st = conn.createStatement();
-			st.setFetchSize(500000);
+			st.setFetchSize(50000);
 			ResultSet rs = null;
 			//NUMERIC
 			rs = st.executeQuery("select seq, table_id, key_id from " + QRS_QUERY_TUPLE_NUMERIC + " a where a.seq = " + seq
@@ -275,7 +275,7 @@ public class DatabaseInteraction {
 		Set<Long> similarSequences = new HashSet<>();
 		try {
 			Statement st = conn.createStatement();
-			st.setFetchSize(500000);
+			st.setFetchSize(50000);
 			ResultSet resultSet = null;
 			String tableName = QRS_QUERY_TUPLE_NUMERIC;
 			if (tuple.isKeyString()) {
