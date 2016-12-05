@@ -22,10 +22,10 @@ public class DatabaseInteraction {
 	private static final String QRS_QUERY_TUPLE_STRING = "QRS_QUERY_TUPLE_STRING";
 	private static final String QRS_QUERY_TUPLE_NUMERIC = "QRS_QUERY_TUPLE_NUMERIC";
 	private static final String QRS_PROBLEMATIC_SEQUENCES = "QRS_PROBLEMATIC_SEQUENCES";
+	private static final String QRS_COMPARABLE_SEQUENCES = "QRS_COMPARABLE_SEQUENCES";
 	public static Connection conn;
 	
 	private static final DatabaseInteraction INSTANCE = new DatabaseInteraction();
-	private static final String QRS_COMPARABLE_SEQUENCES = null;
 	
 	private DatabaseInteraction() {
 		
