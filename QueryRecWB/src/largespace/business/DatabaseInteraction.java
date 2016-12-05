@@ -22,6 +22,7 @@ public class DatabaseInteraction {
 	private static final String QRS_QUERY_TUPLE_STRING = "QRS_QUERY_TUPLE_STRING";
 	private static final String QRS_QUERY_TUPLE_NUMERIC = "QRS_QUERY_TUPLE_NUMERIC";
 	private static final String QRS_PROBLEMATIC_SEQUENCES = "QRS_PROBLEMATIC_SEQUENCES";
+	private static final String QRS_COMPARABLE_SEQUENCES = "QRS_COMPARABLE_SEQUENCES";
 	public static Connection conn;
 	
 	private static final DatabaseInteraction INSTANCE = new DatabaseInteraction();
@@ -163,6 +164,10 @@ public class DatabaseInteraction {
 		return res;
 	}
 	
+	public static Set<Long> getAllComparableSequences() {
+		return INSTANCE.getAllSequencesFromTable(QRS_COMPARABLE_SEQUENCES);
+	}
+	
 	public static List<RowInfo> getAllProblematicStatements(OptionsOwn opt) {
 		return INSTANCE.getAllStatementsFromTable(opt, QRS_PROBLEMATIC_SEQUENCES);
 	}
@@ -248,7 +253,7 @@ public class DatabaseInteraction {
 		Set<TupleInfo> res = new HashSet<>();
 		try {
 			Statement st = conn.createStatement();
-			st.setFetchSize(500000);
+			st.setFetchSize(50000);
 			ResultSet rs = null;
 			//NUMERIC
 			rs = st.executeQuery("select seq, table_id, key_id from " + QRS_QUERY_TUPLE_NUMERIC + " a where a.seq = " + seq
