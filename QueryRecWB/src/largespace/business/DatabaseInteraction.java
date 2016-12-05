@@ -279,7 +279,7 @@ public class DatabaseInteraction {
 		Set<Long> similarSequences = new HashSet<>();
 		try {
 			Statement st = conn.createStatement();
-			st.setFetchSize(500000);
+			st.setFetchSize(50000);
 			ResultSet resultSet = null;
 			String tableName = QRS_QUERY_TUPLE_NUMERIC;
 			if (tuple.isKeyString()) {
@@ -479,6 +479,31 @@ public class DatabaseInteraction {
 			saveProblematicSequencesDB(ri);
 		}
 		return errorRidden;
+	}
+	
+	public static void saveComparableSequences() {
+		
+		Statement st;
+		try {
+			st = conn.createStatement();
+			String query = "insert into " + QRS_COMPARABLE_SEQUENCES + "(seq) select distinct seq "
+					+ "from (select * from (select table_id, key_id, count(*) as count from "
+					+ QRS_QUERY_TUPLE_STRING + " group by table_id, key_id) "
+					+ "where count > 1) a join " + QRS_QUERY_TUPLE_STRING + " b  on a.key_id = b.key_id and a.table_id = b.table_id";
+			st.executeQuery(query);
+			conn.commit();
+			st.close();
+			st = conn.createStatement();
+			query = "insert into " + QRS_COMPARABLE_SEQUENCES + "(seq) select distinct seq "
+					+ "from (select * from (select table_id, key_id, count(*) as count from "
+					+ QRS_QUERY_TUPLE_NUMERIC + " group by table_id, key_id) "
+					+ "where count > 1) a join " + QRS_QUERY_TUPLE_NUMERIC + " b  on a.key_id = b.key_id and a.table_id = b.table_id";
+			st.executeQuery(query);
+			conn.commit();
+			st.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public static void saveFixedStatementsToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
