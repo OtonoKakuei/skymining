@@ -22,11 +22,11 @@ import net.sf.jsqlparser.statement.select.FromItem;
 public class QueryRec {
 	private OptionsOwn opt;
 
-	public QueryRec(OptionsOwn opt_) {
-		opt = opt_;
+	public QueryRec(OptionsOwn opt) {
+		this.opt = opt;
 		// dbI = new DatabaseInteraction();
-		DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password);
-		opt.tablesWithKeys = DatabaseInteraction.getTablesKeys();
+		DatabaseInteraction.establishConnection(opt);
+		this.opt.tablesWithKeys = DatabaseInteraction.getTablesKeys();
 	}
 
 	public void preprocess(OptionsOwn opt) {
@@ -47,7 +47,7 @@ public class QueryRec {
 				// }
 				try {
 					System.out.println("SEQ: " + rowInfo.seq);
-					DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password);
+					DatabaseInteraction.establishConnection(opt);
 					AccessArea accessArea = extraction.extractAccessArea(rowInfo.statement);
 					List<FromItem> fi = accessArea.getFrom();
 					// now we have tables in the from clause of the
@@ -95,7 +95,7 @@ public class QueryRec {
 //						continue;
 //					}
 					System.out.println("SEQ: " + rowInfo.seq);
-					DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password);
+					DatabaseInteraction.establishConnection(opt);
 					AccessArea accessArea = extraction.extractAccessArea(rowInfo.statement);
 					List<FromItem> fi = accessArea.getFrom();
 					// now we have tables in the from clause of the
@@ -142,7 +142,7 @@ public class QueryRec {
 //					}
 					i++;
 					System.out.println("Processing SEQ: " + rowInfo.seq + ", progress: " + i + "/" + relevantRowsSize);
-					DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password);
+					DatabaseInteraction.establishConnection(opt);
 					//FIXME check correctness!
 					appendSelectPrimaryKeyToRowInfo(rowInfo);
 					AccessArea accessArea = extraction.extractAccessArea(rowInfo.statement);
@@ -205,7 +205,7 @@ public class QueryRec {
 	
 	public void exportQueryTupleFrequencyToCSV() {
 		String filename = "Test3.csv";
-		DatabaseInteraction.establishConnection(opt.serverAddress, opt.username, opt.password);
+		DatabaseInteraction.establishConnection(opt);
 		StringBuilder sb = new StringBuilder("");
 		System.out.println("Starting");
 		int i = 0;
@@ -228,7 +228,7 @@ public class QueryRec {
 			e.printStackTrace();
 		}
 	}
-
+	
 	public void recommend(OptionsOwn opt) {
 		// TODO implement this
 	}
