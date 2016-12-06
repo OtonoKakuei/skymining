@@ -5,14 +5,18 @@ import java.sql.ResultSet;
 public class TupleInfo {
 	private Long sequence;
 	private Long tableId;
-	private Long keyId;
+	private Object keyId;
 	private boolean isKeyString;
 	
 	public TupleInfo(ResultSet resultSet, boolean isKeyString) {
 		try {
 			sequence = resultSet.getLong("SEQ");
 			tableId = resultSet.getLong("TABLE_ID");
-			keyId = resultSet.getLong("KEY_ID");
+			if (isKeyString) {
+				keyId = resultSet.getString("KEY_ID");
+			} else {
+				keyId = resultSet.getLong("KEY_ID");
+			}
 			this.isKeyString = isKeyString;
 		} catch (Exception ex) {
 			System.out.println("Exception in Getting data, seq = " + sequence);
@@ -27,7 +31,7 @@ public class TupleInfo {
 		return sequence;
 	}
 	
-	public Long getKeyId() {
+	public Object getKeyId() {
 		return keyId;
 	}
 	
@@ -40,7 +44,6 @@ public class TupleInfo {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + ((keyId == null) ? 0 : keyId.hashCode());
-		result = prime * result + ((sequence == null) ? 0 : sequence.hashCode());
 		result = prime * result + ((tableId == null) ? 0 : tableId.hashCode());
 		return result;
 	}
@@ -58,11 +61,6 @@ public class TupleInfo {
 			if (other.keyId != null)
 				return false;
 		} else if (!keyId.equals(other.keyId))
-			return false;
-		if (sequence == null) {
-			if (other.sequence != null)
-				return false;
-		} else if (!sequence.equals(other.sequence))
 			return false;
 		if (tableId == null) {
 			if (other.tableId != null)
