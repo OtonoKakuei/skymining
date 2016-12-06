@@ -11,12 +11,16 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import aima.core.util.datastructure.Pair;
 import wb.model.TupleInfo;
 
 public class DatabaseInteraction {
+	private static final String QRS_SIMILAR_SEQS = "QRS_SIMILAR_SEQS";
+	private static final String QRS_QUERY_SIMILARITY = "QRS_QUERY_SIMILARITY";
 	private static final String QRS_PROCESSED_STRAYS = "QRS_PROCESSED_STRAYS";
 	private static final String QRS_DB_SCHEMA = "QRS_DB_SCHEMA";
 	private static final String QRS_QUERY_TUPLE_STRING = "QRS_QUERY_TUPLE_STRING";
@@ -29,6 +33,10 @@ public class DatabaseInteraction {
 	
 	private DatabaseInteraction() {
 		
+	}
+	
+	public static void establishConnection(OptionsOwn opt) {
+		establishConnection(opt.serverAddress, opt.username, opt.password);
 	}
 	
 	public static void establishConnection(String serverAddress, String username, String password) {
@@ -146,13 +154,13 @@ public class DatabaseInteraction {
 		return rowInfo;
 	}
 	
-	private Set<Long> getAllSequencesFromTable(String tableName) {
-		Set<Long> res = new HashSet<>();
+	private List<Long> getAllSequencesFromTable(String tableName) {
+		List<Long> res = new ArrayList<>();
 		try {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
 			ResultSet rs = null;
-			rs = st.executeQuery("select distinct seq from " + tableName);
+			rs = st.executeQuery("select distinct seq from " + tableName + " order by seq");
 			while (rs.next()) {
 				res.add(rs.getLong("SEQ"));
 			}
@@ -164,19 +172,27 @@ public class DatabaseInteraction {
 		return res;
 	}
 	
-	public static Set<Long> getAllComparableSequences() {
+	public static List<Long> getAllComparableSequences() {
 		return INSTANCE.getAllSequencesFromTable(QRS_COMPARABLE_SEQUENCES);
+	}
+	
+	public static List<Long> getAllProcessedSimilarSequences() {
+		return INSTANCE.getAllSequencesFromTable(QRS_SIMILAR_SEQS);
+	}
+	
+	public static List<Long> getAllSequencesFromQuerySimilarity() {
+		return INSTANCE.getAllSequencesFromTable(QRS_QUERY_SIMILARITY);
 	}
 	
 	public static List<RowInfo> getAllProblematicStatements(OptionsOwn opt) {
 		return INSTANCE.getAllStatementsFromTable(opt, QRS_PROBLEMATIC_SEQUENCES);
 	}
 	
-	public static Set<Long> getAllStringTupleSequences() {
+	public static List<Long> getAllStringTupleSequences() {
 		return INSTANCE.getAllSequencesFromTable(QRS_QUERY_TUPLE_STRING);
 	}
 	
-	public static Set<Long> getAllNumericTupleSequences() {
+	public static List<Long> getAllNumericTupleSequences() {
 		return INSTANCE.getAllSequencesFromTable(QRS_QUERY_TUPLE_NUMERIC);
 	}
 	
@@ -187,7 +203,7 @@ public class DatabaseInteraction {
 		return sequences;
 	}
 	
-	public static Set<Long> getAllProblematicSequences() {
+	public static List<Long> getAllProblematicSequences() {
 		return INSTANCE.getAllSequencesFromTable(QRS_PROBLEMATIC_SEQUENCES);
 	}
 	
@@ -256,16 +272,16 @@ public class DatabaseInteraction {
 			st.setFetchSize(50000);
 			ResultSet rs = null;
 			//NUMERIC
-			rs = st.executeQuery("select seq, table_id, key_id from " + QRS_QUERY_TUPLE_NUMERIC + " a where a.seq = " + seq
-					+ " order by seq");
+			rs = st.executeQuery("select seq, table_id, key_id from " + QRS_QUERY_TUPLE_NUMERIC + " a where a.seq = " + seq);
 			while (rs.next()) {
 				res.add(new TupleInfo(rs, false));
 			}
-			//STRING
-			rs = st.executeQuery("select seq, table_id, key_id from " + QRS_QUERY_TUPLE_STRING + " a where a.seq = " + seq
-					+ " order by seq");
-			while (rs.next()) {
-				res.add(new TupleInfo(rs, true));
+			if (res.isEmpty()) {
+				//STRING
+				rs = st.executeQuery("select seq, table_id, key_id from " + QRS_QUERY_TUPLE_STRING + " a where a.seq = " + seq);
+				while (rs.next()) {
+					res.add(new TupleInfo(rs, true));
+				}
 			}
 			rs.close();
 			st.close();
@@ -273,6 +289,25 @@ public class DatabaseInteraction {
 			ex.printStackTrace();
 		}
 		return res;
+	}
+	
+	public static Set<Long> getSimilarSequencesFromTable(Long seq) {
+		Set<Long> similarSequences = new HashSet<>();
+		try {
+			Statement st = conn.createStatement();
+			st.setFetchSize(50000);
+			ResultSet resultSet = null;
+			String tableName = QRS_SIMILAR_SEQS;
+			resultSet = st.executeQuery("select * from " + tableName + " a where a.seq = " + seq);
+			while (resultSet.next()) {
+				similarSequences.add(resultSet.getLong("OTHER_SEQ"));
+			}
+			resultSet.close();
+			st.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return similarSequences;
 	}
 
 	public static Set<Long> getSimilarSequences(TupleInfo tuple) {
@@ -282,12 +317,14 @@ public class DatabaseInteraction {
 			st.setFetchSize(50000);
 			ResultSet resultSet = null;
 			String tableName = QRS_QUERY_TUPLE_NUMERIC;
+			String stringAddition = "";
 			if (tuple.isKeyString()) {
 				tableName = QRS_QUERY_TUPLE_STRING;
+				stringAddition = "'";
 			}
 			resultSet = st
 					.executeQuery("select seq from " + tableName + " a where not a.seq = " + tuple.getSequence()
-							+ "" + " and a.table_id = " + tuple.getTableId() + " and a.key_id = " + tuple.getKeyId());
+							+ "" + " and a.table_id = " + tuple.getTableId() + " and a.key_id = " + stringAddition + tuple.getKeyId() + stringAddition);
 			while (resultSet.next()) {
 				similarSequences.add(resultSet.getLong("SEQ"));
 			}
@@ -482,11 +519,10 @@ public class DatabaseInteraction {
 	}
 	
 	public static void saveComparableSequences() {
-		
 		Statement st;
 		try {
 			st = conn.createStatement();
-			String query = "insert into " + QRS_COMPARABLE_SEQUENCES + "(seq) select distinct seq "
+			String query = "insert into " + QRS_COMPARABLE_SEQUENCES + " (seq) select distinct seq "
 					+ "from (select * from (select table_id, key_id, count(*) as count from "
 					+ QRS_QUERY_TUPLE_STRING + " group by table_id, key_id) "
 					+ "where count > 1) a join " + QRS_QUERY_TUPLE_STRING + " b  on a.key_id = b.key_id and a.table_id = b.table_id";
@@ -503,6 +539,95 @@ public class DatabaseInteraction {
 			st.close();
 		} catch (SQLException e) {
 			e.printStackTrace();
+		}
+	}
+	
+	public static void saveQuerySimilarity(Long seq, Map<Long, Double> similarityMap) {
+		PreparedStatement preparedStatement;
+		String query = "insert into " + QRS_QUERY_SIMILARITY + " (seq, other_seq, similarity) values (" + seq + ", ?, ?)";
+		boolean previousAutoCommit = false;
+		try {
+			preparedStatement = conn.prepareStatement(query);
+			previousAutoCommit = conn.getAutoCommit();
+			conn.setAutoCommit(false);
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+			throw new RuntimeException(e1.getMessage());
+		}
+		int i = 0;
+		for (Entry<Long, Double> entry : similarityMap.entrySet()) {
+			i++;
+			try {
+				preparedStatement.setLong(1, entry.getKey());
+				preparedStatement.setDouble(2, entry.getValue());
+				preparedStatement.addBatch();
+				if (i % 1000 == 0) {
+					preparedStatement.executeBatch();
+					conn.commit();
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+				break;
+			}
+		}
+		if (i % 1000 != 0) {
+			try {
+				preparedStatement.executeBatch();
+				conn.commit();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		try {
+			preparedStatement.close();
+			conn.setAutoCommit(previousAutoCommit);
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException(e.getMessage());
+		}
+	}
+	
+	public static void saveSimilarSequences(Long seq, Set<Long> similarSequences) {
+		PreparedStatement preparedStatement;
+		String query = "insert into " + QRS_SIMILAR_SEQS + " (seq, other_seq) values (" + seq + ", ?)";
+		boolean previousAutoCommit = false;
+		try {
+			preparedStatement = conn.prepareStatement(query);
+			previousAutoCommit = conn.getAutoCommit();
+			conn.setAutoCommit(false);
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+			throw new RuntimeException(e1.getMessage());
+		}
+		int i = 0;
+		for (long otherSeq : similarSequences) {
+			i++;
+			try {
+				preparedStatement.setLong(1, otherSeq);
+				preparedStatement.addBatch();
+				if (i % 1000 == 0) {
+					preparedStatement.executeBatch();
+					conn.commit();
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+				break;
+			}
+		}
+		if (i % 1000 != 0) {
+			try {
+				preparedStatement.executeBatch();
+				conn.commit();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		try {
+			preparedStatement.close();
+			conn.setAutoCommit(previousAutoCommit);
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException(e.getMessage());
 		}
 	}
 
@@ -567,7 +692,7 @@ public class DatabaseInteraction {
 		knownQueries.addAll(INSTANCE.getAllSequencesFromTable(QRS_PROCESSED_STRAYS));
 		
 		for (RowInfo rowInfo : getAllRelevantStatements(opt)) {
-			if (rowInfo.seq == 17603537 || rowInfo.seq == 17603493 || rowInfo.seq == 17588010 || rowInfo.seq == 17605732 || !knownQueries.contains(rowInfo.seq)) {
+			if (!knownQueries.contains(rowInfo.seq)) {
 				result.add(rowInfo);
 			}
 		}
