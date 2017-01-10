@@ -3,17 +3,20 @@ package query.process;
 import java.util.Map;
 
 import aima.core.util.datastructure.Pair;
+import largespace.business.DatabaseInteraction;
 
 public class UserSessionSimilarityFunction {
 
 	private static final UserSessionSimilarityFunction INSTANCE = new UserSessionSimilarityFunction();
 
 	private UserSessionSimilarityFunction() {
-
 	}
 
 	public static Map<Pair<Long, Long>, Float> getSimilarQueries(long userSession, long lastSeq, boolean isOrdered) {
-		
-		return null;
+		if (isOrdered) {
+			return DatabaseInteraction.getSimilarOrderedRecommendations(userSession, lastSeq);
+		} else {
+			return DatabaseInteraction.getSimilarUnorderedRecommendations(userSession, lastSeq);
+		}
 	}
 }

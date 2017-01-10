@@ -17,6 +17,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import aima.core.util.datastructure.Pair;
+import query.process.QuerySimilarityFunction;
 import wb.model.SessionInfo;
 import wb.model.TupleInfo;
 
@@ -33,7 +34,7 @@ public class DatabaseInteraction {
 	private static final String QRS_PROBLEMATIC_SEQUENCES = "QRS_PROBLEMATIC_SEQUENCES";
 	private static final String QRS_COMPARABLE_SEQUENCES = "QRS_COMPARABLE_SEQUENCES";
 	
-	private static final Map<Long, SessionInfo> sessionInfoMap = new HashMap<>();
+	private static final Map<Long, SessionInfo> SESSION_INFO_MAP = new HashMap<>();
 	
 	public static Connection conn;
 	
@@ -324,7 +325,10 @@ public class DatabaseInteraction {
 				}
 			}
 			for (Entry<Long, List<Long>> entry : sessionsMap.entrySet()) {
-				res.add(new SessionInfo(entry.getKey(), entry.getValue()));
+				Long sessionId = entry.getKey();
+				SessionInfo sessionInfo = new SessionInfo(sessionId, entry.getValue());
+				res.add(sessionInfo);
+				SESSION_INFO_MAP.put(sessionId, sessionInfo);
 			}
 			resultSet.close();
 			st.close();
@@ -334,8 +338,28 @@ public class DatabaseInteraction {
 		return res;
 	}
 	
-	public static void insertSegmentedUserSessions(Set<SessionInfo> sessions) {
+	public static void segmentAndInsertUserSessions(Set<SessionInfo> sessions) {
+		int index = 1;
+		int seqsCount = 1;
+		Long beginTime = System.currentTimeMillis();
+		double maxTime = 0.0;
+		double totalTime = 0.0;
+		double averageTime = 0.0;
+		PreparedStatement preparedStatement = null;
+		boolean previousAutoCommit = false;
+		try {
+			preparedStatement = conn.prepareStatement("INSERT INTO " + QRS_US_SEGMENTED + " ( USER_SESSION, SEQ, LAST_SEQ, LAST_POSITION, FULL_SESSION )"
+					+ " SELECT ?, ?, ?, ?, ? FROM dual");
+			previousAutoCommit = conn.getAutoCommit();
+			conn.setAutoCommit(false);
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+			throw new RuntimeException(e1.getMessage());
+		}
 		for (SessionInfo session : sessions) {
+			
+			System.out.println(index + "/" + sessions.size());
+			
 			long sessionId = session.getSessionId();
 			List<Long> orderedSequences = session.getOrderedSequences();
 			
@@ -349,20 +373,50 @@ public class DatabaseInteraction {
 				for (int j = 0; j <= i; j++) {
 					long seq = orderedSequences.get(j);
 					try {
-						Statement st = conn.createStatement();
-						String query = "INSERT INTO " + QRS_US_SEGMENTED + " ( USER_SESSION, SEQ, LAST_SEQ, LAST_POSITION, FULL_SESSION ) SELECT  " 
-								+ sessionId + ", " + seq + ", " + lastSeq + ", " + lastPosition + ", '" + (isFinalSeq ? 1 : 0) + "'"
-								+ " FROM dual WHERE NOT EXISTS (select 1 from " + QRS_US_SEGMENTED + " WHERE seq = " + seq + " AND LAST_SEQ = " 
-								+ lastSeq + ")";
-						st.executeQuery(query);
-						conn.commit();
-						st.close();
+						preparedStatement.setLong(1, sessionId);
+						preparedStatement.setLong(2, seq);
+						preparedStatement.setLong(3, lastSeq);
+						preparedStatement.setLong(4, lastPosition);
+						preparedStatement.setString(5, (isFinalSeq ? 1 : 0) + "");
+						preparedStatement.addBatch();
+						if (seqsCount % 1000 == 0) {
+							System.out.println("Trying to execute batch");
+							preparedStatement.executeBatch();
+							conn.commit();
+							System.err.println("TotalTime: " + totalTime + ", AverageTime: " + averageTime + ", MaxTime: " + maxTime);
+							System.out.println("Committed to: " + QRS_US_SEGMENTED);
+						}
+						seqsCount++;
 					} catch (Exception e) {
 						e.printStackTrace();
 						break;
 					}
 				}
 			}
+			
+			double timeNeeded = ((System.currentTimeMillis() - beginTime)) / 1000.0;
+			totalTime += timeNeeded;
+			averageTime = totalTime / index;
+			if (maxTime < timeNeeded) {
+				maxTime = timeNeeded;
+			}
+			index++;
+		}
+		if (seqsCount % 1000 != 0) {
+			try {
+				preparedStatement.executeBatch();
+				conn.commit();
+				System.out.println("Committed to: " + QRS_US_SEGMENTED);
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		try {
+			preparedStatement.close();
+			conn.setAutoCommit(previousAutoCommit);
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException(e.getMessage());
 		}
 	}
 	
@@ -431,16 +485,36 @@ public class DatabaseInteraction {
 	
 	
 	
-	private static float getSimilarity(Long currentSeq, Long seq) {
-		// TODO Auto-generated method stub
-		return 0;
+	private static float getSimilarity(Long currentSeq, Long otherSeq) {
+		Float similarity = null;
+		try {
+			Statement st = conn.createStatement();
+			st.setFetchSize(50000);
+			ResultSet resultSet = null;
+			String tableName = QRS_QUERY_SIMILARITY;
+			resultSet = st.executeQuery("select * from " + tableName + " a where a.seq = " + currentSeq + " and a.other_seq = " + otherSeq);
+			while (resultSet.next()) {
+				similarity = resultSet.getFloat("similarity");
+			}
+			resultSet.close();
+			st.close();
+			if (similarity == null) {
+				similarity = (float) QuerySimilarityFunction.calculateSimilarity(currentSeq, otherSeq);
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return similarity;
 	}
 
 	public static SessionInfo findUserSession(long userSessionId) {
-		SessionInfo session = sessionInfoMap.get(userSessionId);
+		SessionInfo session = SESSION_INFO_MAP.get(userSessionId);
 		if (session == null) {
-			//TODO find in table
-			
+			getAllSessions();
+			session = SESSION_INFO_MAP.get(userSessionId);
+			if (session == null) {
+				throw new IllegalArgumentException("Shouldn't be possible");
+			}
 		}
 		return session;
 	}
@@ -449,17 +523,19 @@ public class DatabaseInteraction {
 		try {
 			Statement st = conn.createStatement();
 			String query = "insert into qrs_us_segmented_tuple_string "
-					+ "(user_session, last_seq, table_id, key_id, duplicate_count, full_session) select user_session, table_id, key_id, count(*) "
-					+ "as duplicate_count, full_session from (select b.usersession as user_session, a.table_id, "
-					+ "a.key_id, b.full_session from QRS_QUERY_TUPLE_STRING a join + " + QRS_US_SEGMENTED + " b on a.seq = b.seq) "
-					+ "group by user_session, table_id, key_id order by user_session;";
+					+ "(user_session, last_seq, table_id, key_id, duplicate_count, full_session) select user_session, last_seq,"
+					+ " table_id, key_id, count(*) as duplicate_count, full_session from  "
+					+ "(select b.user_session as user_session, b.last_seq, a.table_id, a.key_id, b.full_session"
+					+ " from QRS_QUERY_TUPLE_STRING a join  QRS_US_SEGMENTED b on a.seq = b.seq) "
+					+ "group by user_session, last_seq, table_id, key_id, full_session order by user_session";
 			st.executeQuery(query);
 			
 			query = "insert into qrs_us_segmented_tuple_numeric "
-					+ "(user_session, last_seq, table_id, key_id, duplicate_count, full_session) select user_session, table_id, key_id, count(*) "
-					+ "as duplicate_count, full_session from (select b.usersession as user_session, a.table_id, "
-					+ "a.key_id, b.full_session from QRS_QUERY_TUPLE_NUMERIC a join + " + QRS_US_SEGMENTED + " b on a.seq = b.seq) "
-					+ "group by user_session, table_id, key_id order by user_session;";
+					+ "(user_session, last_seq, table_id, key_id, duplicate_count, full_session) select user_session, last_seq,"
+					+ " table_id, key_id, count(*) as duplicate_count, full_session from  "
+					+ "(select b.user_session as user_session, b.last_seq, a.table_id, a.key_id, b.full_session"
+					+ " from QRS_QUERY_TUPLE_NUMERIC a join  QRS_US_SEGMENTED b on a.seq = b.seq) "
+					+ "group by user_session, last_seq, table_id, key_id, full_session order by user_session";
 			st.executeQuery(query);
 			conn.commit();
 			st.close();
