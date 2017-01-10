@@ -544,6 +544,91 @@ public class DatabaseInteraction {
 		}
 	}
 	
+	public static void calculateUnorderedSimilarities() {
+		int index = 1;
+		int seqsCount = 1;
+//		Long beginTime = System.currentTimeMillis();
+		double totalTime = 0.0;
+		double averageTime = 0.0;
+		double maxTime = 0.0;
+		PreparedStatement preparedStatement = null;
+		boolean previousAutoCommit = false;
+		try {
+			preparedStatement = conn.prepareStatement("insert into QRS_US_SIMILARITY (sess, last_seq, seq_position, other_sess, unordered_similarity) select user_session, last_seq, seq_position, other_user_session, (total_intersect_number / (user_session_tuples + other_tuples - total_intersect_number)) as similarity from ("
+					+ " select d.user_session, d.last_seq, d.seq_position, d.other_user_session, d.total_intersect_number, d.user_session_tuples, c.tuple_count as other_tuples from ("
+					+ " select a.user_session, a.last_seq, a.other_user_session, a.total_intersect_number, b.last_position as seq_position, b.tuple_count as user_session_tuples from (select sess as user_session, last_seq, other_sess as other_user_session, sum(total_intersect_number) as total_intersect_number "
+					+ " from (select temp.user_session1 as sess, temp.last_seq1 as last_seq, temp.user_session2 as other_sess, sum(count2 - (abs(count2 - count1) + count2 - count1) / 2) as total_intersect_number from (select q1.user_session as user_session1, q1.last_seq as last_seq1, q2.user_session as user_session2, q1.duplicate_count as count1, q2.duplicate_count as count2 from (select user_session, last_seq, table_id, key_id, count(*) as duplicate_count from (select b.user_session as user_session, b.last_seq, a.table_id, a.key_id from QRS_QUERY_TUPLE_numeric a join (select * from QRS_US_SEGMENTED where user_session = ? and last_seq = ?) b on a.seq = b.seq) group by user_session, last_seq, table_id, key_id order by user_session) q1  inner join QRS_US_TUPLE_NUMERIC q2 on q1.table_id = q2.table_id and q1.key_id = q2.key_id where q1.user_session != q2.user_session union (select q3.user_session as sess, q3.last_seq as last_seq, q4.user_session as other_sess, q3.duplicate_count as count1, q4.duplicate_count as count2 from (select user_session, last_seq, table_id, key_id, count(*) as duplicate_count from (select b.user_session as user_session, b.last_seq, a.table_id, a.key_id from QRS_QUERY_TUPLE_string a join (select * from QRS_US_SEGMENTED where user_session = 244 and last_seq = 538446) b on a.seq = b.seq) group by user_session, last_seq, table_id, key_id order by user_session) q3 inner join QRS_US_TUPLE_string q4 on q3.table_id = q4.table_id and q3.key_id = q4.key_id where q3.user_session != q4.user_session)) temp group by temp.user_session1, temp.last_seq1, temp.user_session2 order by temp.last_seq1) group by sess, last_seq, other_sess)"
+					+ "  a"
+					+ " join (select user_session, last_seq, last_position, sum(tuple_count) as tuple_count from (select user_session, last_seq, last_position, sum(duplicate_count) as tuple_count from (select user_session, last_seq, last_position, table_id, key_id, count(*) as duplicate_count from (select b.user_session as user_session, b.last_seq, b.last_position, a.table_id, a.key_id from QRS_QUERY_TUPLE_numeric a join (select * from QRS_US_SEGMENTED where user_session = ? and last_seq = ?) b on a.seq = b.seq) group by user_session, last_seq, last_position, table_id, key_id order by user_session) group by user_session, last_seq, last_position) group by user_session, last_seq, last_position"
+					+ " union all (select user_session, last_seq, last_position, sum(tuple_count) as tuple_count from (select user_session, last_seq, last_position, sum(duplicate_count) as tuple_count from (select user_session, last_seq, last_position, table_id, key_id, count(*) as duplicate_count from (select b.user_session as user_session, b.last_seq, b.last_position, a.table_id, a.key_id from QRS_QUERY_TUPLE_string a join (select * from QRS_US_SEGMENTED where user_session = ? and last_seq = ?) b on a.seq = b.seq) group by user_session, last_seq, last_position, table_id, key_id order by user_session) group by user_session, last_seq, last_position) group by user_session, last_seq, last_position)"
+					+ ") b on a.user_session = b.user_session and a.last_seq = b.last_seq"
+					+ ") d join (select * from QRS_US_TUPLE_COUNT) c on d.other_user_session = c.user_session)");
+			previousAutoCommit = conn.getAutoCommit();
+			conn.setAutoCommit(false);
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+			throw new RuntimeException(e1.getMessage());
+		}
+		Set<SessionInfo> sessions = getAllSessions();
+		for (SessionInfo session : sessions) {
+			Long beginLoopTime = System.currentTimeMillis();
+			System.out.println(index + "/" + sessions.size());
+			
+			long sessionId = session.getSessionId();
+			List<Long> orderedSequences = session.getOrderedSequences();
+			
+			for (int i = 0; i < orderedSequences.size(); i++) {
+				long lastSeq = orderedSequences.get(i);
+				try {
+					preparedStatement.setLong(1, sessionId);
+					preparedStatement.setLong(2, lastSeq);
+					preparedStatement.setLong(3, sessionId);
+					preparedStatement.setLong(4, lastSeq);
+					preparedStatement.setLong(5, sessionId);
+					preparedStatement.setLong(6, lastSeq);
+					preparedStatement.addBatch();
+					if (seqsCount % 1000 == 0) {
+						System.out.println("Trying to execute batch");
+						preparedStatement.executeBatch();
+						conn.commit();
+						System.err.println("TotalTime: " + totalTime + ", AverageTime: " + averageTime + ", MaxTime: " + maxTime);
+						System.out.println("Committed to: QRS_US_SIMILARITY");
+					}
+					seqsCount++;
+				} catch (Exception e) {
+					e.printStackTrace();
+					break;
+				}
+			}
+			
+			double timeNeeded = ((System.currentTimeMillis() - beginLoopTime)) / 1000.0;
+			totalTime += timeNeeded;
+			averageTime = totalTime / index;
+			if (maxTime < timeNeeded) {
+				maxTime = timeNeeded;
+			}
+			index++;
+		}
+		if (seqsCount % 1000 != 0) {
+			try {
+				preparedStatement.executeBatch();
+				conn.commit();
+				System.out.println("Committed to: QRS_US_SIMILARITY");
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		try {
+			preparedStatement.close();
+			conn.setAutoCommit(previousAutoCommit);
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException(e.getMessage());
+		}
+	}
+	
+	
+	
 	public static Set<Long> getSimilarSequencesFromTable(Long seq) {
 		Set<Long> similarSequences = new HashSet<>();
 		try {

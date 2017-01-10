@@ -68,7 +68,7 @@ public class MainClass {
 //		System.err.println("Finished segmenting and inserting user sessions in: " 
 //				+ ((System.currentTimeMillis() - beginTime)) / 1000 + " seconds.");
 //		beginTime = System.currentTimeMillis();
-		DatabaseInteraction.insertSegmentedUserSessionTuples();
+		DatabaseInteraction.calculateUnorderedSimilarities();
 		System.err.println("Finished inserting tuples of segmented user sessions in: " 
 				+ ((System.currentTimeMillis() - beginTime)) / 1000 + " seconds.");
 	}
