@@ -68,7 +68,12 @@ public class MainClass {
 //		System.err.println("Finished segmenting and inserting user sessions in: " 
 //				+ ((System.currentTimeMillis() - beginTime)) / 1000 + " seconds.");
 //		beginTime = System.currentTimeMillis();
-		DatabaseInteraction.calculateUnorderedSimilarities();
+//		DatabaseInteraction.calculateUnorderedSimilarities();
+		
+		//already done
+//		DatabaseInteraction.updateExpectedSeq("QRS_US_SIMILARITY");
+		
+		DatabaseInteraction.updateExpectedSeq("QRS_USSF_UNORDERED");
 		System.err.println("Finished inserting tuples of segmented user sessions in: " 
 				+ ((System.currentTimeMillis() - beginTime)) / 1000 + " seconds.");
 	}

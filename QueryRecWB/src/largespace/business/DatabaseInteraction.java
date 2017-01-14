@@ -519,6 +519,81 @@ public class DatabaseInteraction {
 		return session;
 	}
 	
+	public static void updateExpectedSeq(String tableName) {
+		int index = 1;
+		int seqsCount = 1;
+		Long beginTime = System.currentTimeMillis();
+		double maxTime = 0.0;
+		double totalTime = 0.0;
+		double averageTime = 0.0;
+		PreparedStatement preparedStatement = null;
+		boolean previousAutoCommit = false;
+		try {
+			preparedStatement = conn.prepareStatement("update " + tableName + " set expected_seq = ? where sess = ? and last_seq = ?"
+					+ " and seq_position = ?");
+			previousAutoCommit = conn.getAutoCommit();
+			conn.setAutoCommit(false);
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+			throw new RuntimeException(e1.getMessage());
+		}
+		Set<SessionInfo> sessions = getAllSessions();
+		for (SessionInfo session : sessions) {
+			
+			System.out.println(index + "/" + sessions.size());
+			
+			long sessionId = session.getSessionId();
+			List<Long> orderedSequences = session.getOrderedSequences();
+			
+			for (int i = 1; i < orderedSequences.size(); i++) {
+				long lastSeq = orderedSequences.get(i - 1);
+				long expectedSeq = orderedSequences.get(i);
+				try {
+					preparedStatement.setLong(1, expectedSeq);
+					preparedStatement.setLong(2, sessionId);
+					preparedStatement.setLong(3, lastSeq);
+					preparedStatement.setLong(4, i);
+					preparedStatement.addBatch();
+					if (seqsCount % 1000 == 0) {
+						System.out.println("Trying to execute batch");
+						preparedStatement.executeBatch();
+						conn.commit();
+						System.err.println("TotalTime: " + totalTime + ", AverageTime: " + averageTime + ", MaxTime: " + maxTime);
+						System.out.println("Committed to: " + tableName);
+					}
+					seqsCount++;
+				} catch (Exception e) {
+					e.printStackTrace();
+					break;
+				}
+			}
+			
+			double timeNeeded = ((System.currentTimeMillis() - beginTime)) / 1000.0;
+			totalTime += timeNeeded;
+			averageTime = totalTime / index;
+			if (maxTime < timeNeeded) {
+				maxTime = timeNeeded;
+			}
+			index++;
+		}
+		if (seqsCount % 1000 != 0) {
+			try {
+				preparedStatement.executeBatch();
+				conn.commit();
+				System.out.println("Committed to: " + tableName);
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		try {
+			preparedStatement.close();
+			conn.setAutoCommit(previousAutoCommit);
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException(e.getMessage());
+		}
+	}
+	
 	public static void insertSegmentedUserSessionTuples() {
 		try {
 			Statement st = conn.createStatement();
