@@ -1,12 +1,14 @@
 package query.process;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.beust.jcommander.JCommander;
 
+import aima.core.util.datastructure.Pair;
 import largespace.business.DatabaseInteraction;
 import largespace.business.OptionsOwn;
-import wb.model.SessionInfo;
 
 public class MainClass {
 	private static final MainClass INSTANCE = new MainClass();
@@ -73,7 +75,9 @@ public class MainClass {
 		//already done
 //		DatabaseInteraction.updateExpectedSeq("QRS_US_SIMILARITY");
 		
-		DatabaseInteraction.updateExpectedSeq("QRS_USSF_UNORDERED");
+		DatabaseInteraction.updateExpectedSeq("qrs_ussf_unordered");
+//		DatabaseInteraction.updateExpectedSeq("QRS_USSF_FB");
+//		DatabaseInteraction.processUnorderedSimilarity(2);
 		System.err.println("Finished inserting tuples of segmented user sessions in: " 
 				+ ((System.currentTimeMillis() - beginTime)) / 1000 + " seconds.");
 	}

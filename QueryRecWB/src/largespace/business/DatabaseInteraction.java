@@ -35,6 +35,7 @@ public class DatabaseInteraction {
 	private static final String QRS_COMPARABLE_SEQUENCES = "QRS_COMPARABLE_SEQUENCES";
 	
 	private static final Map<Long, SessionInfo> SESSION_INFO_MAP = new HashMap<>();
+	private static final Map<Pair<Long, Long>, Float> QUERY_SIMILARITY_MAP = new HashMap<>();
 	
 	public static Connection conn;
 	
@@ -441,6 +442,181 @@ public class DatabaseInteraction {
 		return recommendationMap;
 	}
 	
+	public static void processOrderedSimilarity(String orderedSimTableName) {
+		Set<SessionInfo> sessionInfos = getAllSessions();
+		for (SessionInfo sessionInfo : sessionInfos) {
+			
+			
+		}
+		
+	}
+	
+	public static void processUnorderedSimilarity(int bestSessionCount) {
+		long beginTime = System.currentTimeMillis();
+		System.out.println("Preparing!!");
+		//get all similar queries
+		try {
+			Statement st = conn.createStatement();
+			st.setFetchSize(50000);
+			ResultSet resultSet = null;
+			resultSet = st.executeQuery("select * from QRS_QUERY_SIMILARITY");
+			while (resultSet.next()) {
+				QUERY_SIMILARITY_MAP.put(new Pair<>(resultSet.getLong("seq"),
+						resultSet.getLong("other_seq")), resultSet.getFloat("similarity"));
+			}
+			resultSet.close();
+			st.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		
+		Set<Pair<Long, Long>> segmentedSessions = new HashSet<>();
+		try {
+			Statement st = conn.createStatement();
+			st.setFetchSize(50000);
+			ResultSet resultSet = null;
+			resultSet = st.executeQuery("select sess, last_seq from qrs_us_similarity group by sess, last_seq");
+			while (resultSet.next()) {
+				try {
+					segmentedSessions.add(new Pair<>(resultSet.getLong("SESS"), resultSet.getLong("LAST_SEQ")));
+				} catch (Exception ex) {
+					System.out.println("Exception in getting data");
+				}
+			}
+			resultSet.close();
+			st.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		//get all unordered similarity info
+		Map<Pair<Long, Long>, List<Pair<Long, Float>>> similarityInfoMap = new HashMap<>();
+		try {
+			Statement st = conn.createStatement();
+			st.setFetchSize(50000);
+			ResultSet resultSet = null;
+			resultSet = st.executeQuery("select sess, last_seq, other_sess, unordered_similarity from qrs_us_similarity order by unordered_similarity desc");
+			while (resultSet.next()) {
+				try {
+					long currentSession = resultSet.getLong("sess");
+					long currentSeq = resultSet.getLong("last_seq");
+					long otherSession = resultSet.getLong("other_sess");
+					float similarity = resultSet.getFloat("unordered_similarity");
+					Pair<Long, Long> segmentedSession = new Pair<>(currentSession, currentSeq);
+					List<Pair<Long, Float>> similarSessionInfos = similarityInfoMap.get(segmentedSession);
+					if (similarSessionInfos == null) {
+						similarSessionInfos = new ArrayList<>();
+						similarityInfoMap.put(segmentedSession, similarSessionInfos);
+					}
+					similarSessionInfos.add(new Pair<>(otherSession, similarity));
+				} catch (Exception ex) {
+					System.out.println("Exception in getting data");
+				}
+			}
+			resultSet.close();
+			st.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		
+		System.out.println("Took: " + (System.currentTimeMillis() - beginTime) / 1000 + " seconds");
+		
+		//prepared statement
+		int index = 1;
+		int seqsCount = 1;
+		beginTime = System.currentTimeMillis();
+		double maxTime = 0.0;
+		double totalTime = 0.0;
+		double averageTime = 0.0;
+		PreparedStatement preparedStatement = null;
+		boolean previousAutoCommit = false;
+		try {
+			preparedStatement = conn.prepareStatement("insert into qrs_ussf_unordered (current_session, other_session, last_seq,"
+					+ " similarity, recommended_seq) values (?, ?, ?, ?, ?)");
+			previousAutoCommit = conn.getAutoCommit();
+			conn.setAutoCommit(false);
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+			throw new RuntimeException(e1.getMessage());
+		}
+		
+		int segmentedSessionsSize = segmentedSessions.size();
+		for (Pair<Long, Long> segmentedSession : segmentedSessions) {
+			System.out.println(index + "/" + segmentedSessionsSize);
+			List<Pair<Long, Float>> similarSessions = similarityInfoMap.get(segmentedSession);
+			long userSession = segmentedSession.getFirst();
+			long lastSeq = segmentedSession.getSecond();
+			
+			SessionInfo currentSession = findUserSession(userSession);
+			int lastSeqIndex = currentSession.getOrderedSequences().indexOf(lastSeq);
+			
+			for (int i = 0; i < similarSessions.size() && i < bestSessionCount; i++) {
+				long otherSessionId = similarSessions.get(i).getFirst();
+				List<Long> recommendedSequences = new ArrayList<>(findUserSession(otherSessionId).getOrderedSequences());
+				for (int j = 0; j <= lastSeqIndex; j++) {
+					Long currentSeq = currentSession.getOrderedSequences().get(j);
+					for (Iterator<Long> iter = recommendedSequences.iterator(); iter.hasNext();) {
+						Long seq = iter.next();
+						Float similarity = QUERY_SIMILARITY_MAP.get(new Pair<>(currentSeq, seq));
+						if (similarity == null) {
+							continue;
+						}
+						if (Math.abs(similarity - 1.f) < 1E-6) {
+							iter.remove();
+						}
+					}
+				}
+				
+				for (Long recommendedSeq : recommendedSequences) {
+					try {
+						preparedStatement.setLong(1, userSession);
+						preparedStatement.setLong(2, otherSessionId);
+						preparedStatement.setLong(3, lastSeq);
+						Float unorderedSimilarity = similarSessions.get(i).getSecond();
+						preparedStatement.setFloat(4, unorderedSimilarity);
+						preparedStatement.setLong(5, recommendedSeq);
+						preparedStatement.addBatch();
+						if (seqsCount % 1000 == 0) {
+							System.out.println("Trying to execute batch");
+							preparedStatement.executeBatch();
+							conn.commit();
+							System.err.println("TotalTime: " + totalTime + ", AverageTime: " + averageTime + ", MaxTime: " + maxTime);
+							System.out.println("Committed to: QRS_USSF_UNORDERED");
+						}
+						seqsCount++;
+					} catch (Exception e) {
+						e.printStackTrace();
+						break;
+					}
+				}
+			}
+			double timeNeeded = ((System.currentTimeMillis() - beginTime)) / 1000.0;
+			totalTime += timeNeeded;
+			averageTime = totalTime / index;
+			if (maxTime < timeNeeded) {
+				maxTime = timeNeeded;
+			}
+			index++;
+		}
+		if (seqsCount % 1000 != 0) {
+			try {
+				preparedStatement.executeBatch();
+				conn.commit();
+				System.out.println("Committed to: QRS_USSF_UNORDERED");
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		try {
+			preparedStatement.close();
+			conn.setAutoCommit(previousAutoCommit);
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException(e.getMessage());
+		}
+		
+	}
+	
 	public static Map<Pair<Long, Long>, Float> getSimilarUnorderedRecommendations(long userSession, long lastSeq) {
 		Map<Pair<Long, Long>, Float> recommendationMap = new HashMap<>();
 		try {
@@ -485,24 +661,29 @@ public class DatabaseInteraction {
 	
 	
 	
-	private static float getSimilarity(Long currentSeq, Long otherSeq) {
-		Float similarity = null;
-		try {
-			Statement st = conn.createStatement();
-			st.setFetchSize(50000);
-			ResultSet resultSet = null;
-			String tableName = QRS_QUERY_SIMILARITY;
-			resultSet = st.executeQuery("select * from " + tableName + " a where a.seq = " + currentSeq + " and a.other_seq = " + otherSeq);
-			while (resultSet.next()) {
-				similarity = resultSet.getFloat("similarity");
+	private static float getSimilarity(long currentSeq, long otherSeq) {
+		Pair<Long, Long> similarityPair = new Pair<>(currentSeq, otherSeq);
+		Float similarity = QUERY_SIMILARITY_MAP.get(similarityPair);
+		if (similarity == null) {
+			System.out.println("You're kidding me..: " + QUERY_SIMILARITY_MAP.size());
+			try {
+				Statement st = conn.createStatement();
+				st.setFetchSize(50000);
+				ResultSet resultSet = null;
+				String tableName = QRS_QUERY_SIMILARITY;
+				resultSet = st.executeQuery("select * from " + tableName + " a where a.seq = " + currentSeq + " and a.other_seq = " + otherSeq);
+				while (resultSet.next()) {
+					similarity = resultSet.getFloat("similarity");
+					QUERY_SIMILARITY_MAP.put(similarityPair, similarity);
+				}
+				resultSet.close();
+				st.close();
+				if (similarity == null) {
+					similarity = (float) QuerySimilarityFunction.calculateSimilarity(currentSeq, otherSeq);
+				}
+			} catch (Exception ex) {
+				ex.printStackTrace();
 			}
-			resultSet.close();
-			st.close();
-			if (similarity == null) {
-				similarity = (float) QuerySimilarityFunction.calculateSimilarity(currentSeq, otherSeq);
-			}
-		} catch (Exception ex) {
-			ex.printStackTrace();
 		}
 		return similarity;
 	}
@@ -529,7 +710,7 @@ public class DatabaseInteraction {
 		PreparedStatement preparedStatement = null;
 		boolean previousAutoCommit = false;
 		try {
-			preparedStatement = conn.prepareStatement("update " + tableName + " set expected_seq = ? where sess = ? and last_seq = ?"
+			preparedStatement = conn.prepareStatement("update " + tableName + " set expected_seq = ? where current_session = ? and last_seq = ?"
 					+ " and seq_position = ?");
 			previousAutoCommit = conn.getAutoCommit();
 			conn.setAutoCommit(false);
