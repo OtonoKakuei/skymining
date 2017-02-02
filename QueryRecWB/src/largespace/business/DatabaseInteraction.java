@@ -7,7 +7,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -17,7 +20,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import aima.core.util.datastructure.Pair;
-import query.process.QuerySimilarityFunction;
+import wb.model.OrderingType;
 import wb.model.SessionInfo;
 import wb.model.TupleInfo;
 
@@ -34,7 +37,7 @@ public class DatabaseInteraction {
 	private static final String QRS_PROBLEMATIC_SEQUENCES = "QRS_PROBLEMATIC_SEQUENCES";
 	private static final String QRS_COMPARABLE_SEQUENCES = "QRS_COMPARABLE_SEQUENCES";
 	
-	private static final Map<Long, SessionInfo> SESSION_INFO_MAP = new HashMap<>();
+	private static final Map<OrderingType, Map<Long, SessionInfo>> SESSION_INFO_ORDER_MAP = new HashMap<>();
 	private static final Map<Pair<Long, Long>, Float> QUERY_SIMILARITY_MAP = new HashMap<>();
 	
 	public static Connection conn;
@@ -301,35 +304,84 @@ public class DatabaseInteraction {
 		return res;
 	}
 	
-	public static Set<SessionInfo> getAllSessions() {
+//	public static Set<SessionInfo> getAllSessions() {
+//		Set<SessionInfo> res = new HashSet<>();
+//		Map<Long, List<Long>> sessionsMap = new HashMap<>();
+//		try {
+//			Statement st = conn.createStatement();
+//			st.setFetchSize(50000);
+//			ResultSet resultSet = null;
+//			resultSet = st.executeQuery("select usersession, seq, thetime from " + QRS_QRS_USER_SESSIONS_PP + " order by thetime");
+//			while (resultSet.next()) {
+//				long sequence = -1L;
+//				long session = -1L;
+//				try {
+//					sequence = resultSet.getLong("SEQ");
+//					session = resultSet.getLong("USERSESSION");
+//					List<Long> sequences = sessionsMap.get(session);
+//					if (sequences == null) {
+//						sequences = new ArrayList<>();
+//						sessionsMap.put(session, sequences);
+//					}
+//					sequences.add(sequence);
+//				} catch (Exception ex) {
+//					System.out.println("Exception in Getting data, session = " + session + " seq = " + sequence);
+//				}
+//			}
+//			for (Entry<Long, List<Long>> entry : sessionsMap.entrySet()) {
+//				Long sessionId = entry.getKey();
+//				SessionInfo sessionInfo = new SessionInfo(sessionId, entry.getValue());
+//				res.add(sessionInfo);
+//			}
+//			resultSet.close();
+//			st.close();
+//		} catch (Exception ex) {
+//			ex.printStackTrace();
+//		}
+//		return res;
+//	}
+	
+	public static Set<SessionInfo> getAllSessions(OrderingType orderType) {
+		INSTANCE.initNewOrderSessionMap(orderType);
+		Map<Long, SessionInfo> sessionInfoMap = SESSION_INFO_ORDER_MAP.get(orderType);
+		
+		String addition = "_" + orderType;
 		Set<SessionInfo> res = new HashSet<>();
-		Map<Long, List<Long>> sessionsMap = new HashMap<>();
+		Map<Long, Map<Integer, Long>> sessionsMap = new HashMap<>();
 		try {
 			Statement st = conn.createStatement();
 			st.setFetchSize(50000);
 			ResultSet resultSet = null;
-			resultSet = st.executeQuery("select usersession, seq, thetime from " + QRS_QRS_USER_SESSIONS_PP + " order by thetime");
+			resultSet = st.executeQuery("select user_session, seq, index_position from QRS_US_SEGMENTED" + addition + " where full_session = 1");
 			while (resultSet.next()) {
 				long sequence = -1L;
 				long session = -1L;
+				int indexPosition;
 				try {
 					sequence = resultSet.getLong("SEQ");
-					session = resultSet.getLong("USERSESSION");
-					List<Long> sequences = sessionsMap.get(session);
-					if (sequences == null) {
-						sequences = new ArrayList<>();
-						sessionsMap.put(session, sequences);
+					session = resultSet.getLong("USER_SESSION");
+					indexPosition = resultSet.getInt("INDEX_POSITION");
+					Map<Integer, Long> sequencesMap = sessionsMap.get(session);
+					if (sequencesMap == null) {
+						sequencesMap = new HashMap<>();
+						sessionsMap.put(session, sequencesMap);
 					}
-					sequences.add(sequence);
+					sequencesMap.put(indexPosition, sequence);
 				} catch (Exception ex) {
 					System.out.println("Exception in Getting data, session = " + session + " seq = " + sequence);
 				}
 			}
-			for (Entry<Long, List<Long>> entry : sessionsMap.entrySet()) {
+			for (Entry<Long, Map<Integer, Long>> entry : sessionsMap.entrySet()) {
 				Long sessionId = entry.getKey();
-				SessionInfo sessionInfo = new SessionInfo(sessionId, entry.getValue());
+				Map<Integer, Long> sequencesMap = entry.getValue();
+				List<Long> sequences = new ArrayList<>();
+				for (int i = 1; i <= sequencesMap.size(); i++) {
+					sequences.add(sequencesMap.get(i));
+				}
+				SessionInfo sessionInfo = new SessionInfo(sessionId, sequences);
 				res.add(sessionInfo);
-				SESSION_INFO_MAP.put(sessionId, sessionInfo);
+				
+				sessionInfoMap.put(sessionId, sessionInfo);
 			}
 			resultSet.close();
 			st.close();
@@ -337,6 +389,12 @@ public class DatabaseInteraction {
 			ex.printStackTrace();
 		}
 		return res;
+	}
+	
+	private void initNewOrderSessionMap(OrderingType orderType) {
+		if (SESSION_INFO_ORDER_MAP.get(orderType) == null) {
+			SESSION_INFO_ORDER_MAP.put(orderType, new HashMap<>());
+		}
 	}
 	
 	public static void segmentAndInsertUserSessions(Set<SessionInfo> sessions) {
@@ -442,16 +500,8 @@ public class DatabaseInteraction {
 		return recommendationMap;
 	}
 	
-	public static void processOrderedSimilarity(String orderedSimTableName) {
-		Set<SessionInfo> sessionInfos = getAllSessions();
-		for (SessionInfo sessionInfo : sessionInfos) {
-			
-			
-		}
-		
-	}
-	
-	public static void processUnorderedSimilarity(int bestSessionCount) {
+	public static void processUnorderedSimilarity(int bestSessionCount, OrderingType orderType) {
+		String addition = "_" + orderType;
 		long beginTime = System.currentTimeMillis();
 		System.out.println("Preparing!!");
 		//get all similar queries
@@ -489,6 +539,7 @@ public class DatabaseInteraction {
 			ex.printStackTrace();
 		}
 		//get all unordered similarity info
+		//<<session id, last seq>, <other session, similarity>>
 		Map<Pair<Long, Long>, List<Pair<Long, Float>>> similarityInfoMap = new HashMap<>();
 		try {
 			Statement st = conn.createStatement();
@@ -530,7 +581,7 @@ public class DatabaseInteraction {
 		PreparedStatement preparedStatement = null;
 		boolean previousAutoCommit = false;
 		try {
-			preparedStatement = conn.prepareStatement("insert into qrs_ussf_unordered (current_session, other_session, last_seq,"
+			preparedStatement = conn.prepareStatement("insert into qrs_ussf_unordered" + addition + " (current_session, other_session, last_seq,"
 					+ " similarity, recommended_seq) values (?, ?, ?, ?, ?)");
 			previousAutoCommit = conn.getAutoCommit();
 			conn.setAutoCommit(false);
@@ -543,15 +594,33 @@ public class DatabaseInteraction {
 		for (Pair<Long, Long> segmentedSession : segmentedSessions) {
 			System.out.println(index + "/" + segmentedSessionsSize);
 			List<Pair<Long, Float>> similarSessions = similarityInfoMap.get(segmentedSession);
+			
+//			System.out.println("Before sort: " + Arrays.deepToString(similarSessions.toArray()));
+			
+			Collections.sort(similarSessions, new Comparator<Pair<Long, Float>>() {
+				@Override
+				public int compare(Pair<Long, Float> o1, Pair<Long, Float> o2) {
+					return o2.getSecond().compareTo(o1.getSecond());
+				}
+			});
+			
+//			System.out.println("After sort: " + Arrays.deepToString(similarSessions.toArray()));
+			List<Pair<Long, Float>> bestSessions = new ArrayList<>();
+			for (Pair<Long, Float> session : similarSessions) {
+				if (session.getSecond() < 1f && bestSessions.size() < bestSessionCount) {
+					bestSessions.add(session);
+				}
+			}
+			
 			long userSession = segmentedSession.getFirst();
 			long lastSeq = segmentedSession.getSecond();
 			
-			SessionInfo currentSession = findUserSession(userSession);
+			SessionInfo currentSession = findUserSession(userSession, orderType);
 			int lastSeqIndex = currentSession.getOrderedSequences().indexOf(lastSeq);
 			
-			for (int i = 0; i < similarSessions.size() && i < bestSessionCount; i++) {
-				long otherSessionId = similarSessions.get(i).getFirst();
-				List<Long> recommendedSequences = new ArrayList<>(findUserSession(otherSessionId).getOrderedSequences());
+			for (Pair<Long, Float> sessionInfo : bestSessions) {
+				long otherSessionId = sessionInfo.getFirst();
+				List<Long> recommendedSequences = new ArrayList<>(findUserSession(otherSessionId, orderType).getOrderedSequences());
 				for (int j = 0; j <= lastSeqIndex; j++) {
 					Long currentSeq = currentSession.getOrderedSequences().get(j);
 					for (Iterator<Long> iter = recommendedSequences.iterator(); iter.hasNext();) {
@@ -571,7 +640,7 @@ public class DatabaseInteraction {
 						preparedStatement.setLong(1, userSession);
 						preparedStatement.setLong(2, otherSessionId);
 						preparedStatement.setLong(3, lastSeq);
-						Float unorderedSimilarity = similarSessions.get(i).getSecond();
+						Float unorderedSimilarity = sessionInfo.getSecond();
 						preparedStatement.setFloat(4, unorderedSimilarity);
 						preparedStatement.setLong(5, recommendedSeq);
 						preparedStatement.addBatch();
@@ -580,7 +649,7 @@ public class DatabaseInteraction {
 							preparedStatement.executeBatch();
 							conn.commit();
 							System.err.println("TotalTime: " + totalTime + ", AverageTime: " + averageTime + ", MaxTime: " + maxTime);
-							System.out.println("Committed to: QRS_USSF_UNORDERED");
+							System.out.println("Committed to: QRS_USSF_UNORDERED" + addition);
 						}
 						seqsCount++;
 					} catch (Exception e) {
@@ -601,7 +670,7 @@ public class DatabaseInteraction {
 			try {
 				preparedStatement.executeBatch();
 				conn.commit();
-				System.out.println("Committed to: QRS_USSF_UNORDERED");
+				System.out.println("Committed to: QRS_USSF_UNORDERED" + addition);
 			} catch (SQLException e) {
 				e.printStackTrace();
 			}
@@ -617,82 +686,90 @@ public class DatabaseInteraction {
 		
 	}
 	
-	public static Map<Pair<Long, Long>, Float> getSimilarUnorderedRecommendations(long userSession, long lastSeq) {
-		Map<Pair<Long, Long>, Float> recommendationMap = new HashMap<>();
-		try {
-			Statement st = conn.createStatement();
-			st.setFetchSize(50000);
-			ResultSet resultSet = null;
-			resultSet = st
-					.executeQuery("select other_sess, unordered_similarity from " + QRS_US_SIMILARITY 
-							+ " a where a.sess = " + userSession + " and a.last_seq = " + lastSeq);
-			while (resultSet.next()) {
-				long otherSessionId = resultSet.getLong("other_sess");
-				float unorderedSimilarity = resultSet.getFloat("unordered_similarity");
-				
-				SessionInfo currentSession = findUserSession(userSession);
-				int lastSeqIndex = currentSession.getOrderedSequences().indexOf(lastSeq);
-				List<Long> recommendedSequences = new ArrayList<>(findUserSession(otherSessionId).getOrderedSequences());
-				for (int i = 0; i <= lastSeqIndex; i++) {
-					Long currentSeq = currentSession.getOrderedSequences().get(i);
-					for (Iterator<Long> iter = recommendedSequences.iterator(); iter.hasNext();) {
-						Long seq = iter.next();
-						//find the first very similar / identical query -> similarity == 1
-						if (Math.abs(getSimilarity(currentSeq, seq) - 1.f) < 1E-6) {
-							iter.remove();
-							break;
-						}
-					}
-				}
-				
-				
-				for (Long seq : recommendedSequences) {
-					recommendationMap.put(new Pair<>(otherSessionId, seq),
-							unorderedSimilarity);
-				}
-			}
-			resultSet.close();
-			st.close();
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
-		return recommendationMap;
-	}
+//	public static Map<Pair<Long, Long>, Float> getSimilarUnorderedRecommendations(long userSession, long lastSeq) {
+//		Map<Pair<Long, Long>, Float> recommendationMap = new HashMap<>();
+//		try {
+//			Statement st = conn.createStatement();
+//			st.setFetchSize(50000);
+//			ResultSet resultSet = null;
+//			resultSet = st
+//					.executeQuery("select other_sess, unordered_similarity from " + QRS_US_SIMILARITY 
+//							+ " a where a.sess = " + userSession + " and a.last_seq = " + lastSeq);
+//			while (resultSet.next()) {
+//				long otherSessionId = resultSet.getLong("other_sess");
+//				float unorderedSimilarity = resultSet.getFloat("unordered_similarity");
+//				
+//				SessionInfo currentSession = findUserSession(userSession);
+//				int lastSeqIndex = currentSession.getOrderedSequences().indexOf(lastSeq);
+//				List<Long> recommendedSequences = new ArrayList<>(findUserSession(otherSessionId).getOrderedSequences());
+//				for (int i = 0; i <= lastSeqIndex; i++) {
+//					Long currentSeq = currentSession.getOrderedSequences().get(i);
+//					for (Iterator<Long> iter = recommendedSequences.iterator(); iter.hasNext();) {
+//						Long seq = iter.next();
+//						//find the first very similar / identical query -> similarity == 1
+//						if (Math.abs(getSimilarity(currentSeq, seq) - 1.f) < 1E-6) {
+//							iter.remove();
+//							break;
+//						}
+//					}
+//				}
+//				
+//				
+//				for (Long seq : recommendedSequences) {
+//					recommendationMap.put(new Pair<>(otherSessionId, seq),
+//							unorderedSimilarity);
+//				}
+//			}
+//			resultSet.close();
+//			st.close();
+//		} catch (Exception ex) {
+//			ex.printStackTrace();
+//		}
+//		return recommendationMap;
+//	}
 	
 	
 	
-	private static float getSimilarity(long currentSeq, long otherSeq) {
-		Pair<Long, Long> similarityPair = new Pair<>(currentSeq, otherSeq);
-		Float similarity = QUERY_SIMILARITY_MAP.get(similarityPair);
-		if (similarity == null) {
-			System.out.println("You're kidding me..: " + QUERY_SIMILARITY_MAP.size());
-			try {
-				Statement st = conn.createStatement();
-				st.setFetchSize(50000);
-				ResultSet resultSet = null;
-				String tableName = QRS_QUERY_SIMILARITY;
-				resultSet = st.executeQuery("select * from " + tableName + " a where a.seq = " + currentSeq + " and a.other_seq = " + otherSeq);
-				while (resultSet.next()) {
-					similarity = resultSet.getFloat("similarity");
-					QUERY_SIMILARITY_MAP.put(similarityPair, similarity);
-				}
-				resultSet.close();
-				st.close();
-				if (similarity == null) {
-					similarity = (float) QuerySimilarityFunction.calculateSimilarity(currentSeq, otherSeq);
-				}
-			} catch (Exception ex) {
-				ex.printStackTrace();
-			}
-		}
-		return similarity;
-	}
+//	private static float getSimilarity(long currentSeq, long otherSeq) {
+//		Pair<Long, Long> similarityPair = new Pair<>(currentSeq, otherSeq);
+//		Float similarity = QUERY_SIMILARITY_MAP.get(similarityPair);
+//		if (similarity == null) {
+//			System.out.println("You're kidding me..: " + QUERY_SIMILARITY_MAP.size());
+//			try {
+//				Statement st = conn.createStatement();
+//				st.setFetchSize(50000);
+//				ResultSet resultSet = null;
+//				String tableName = QRS_QUERY_SIMILARITY;
+//				resultSet = st.executeQuery("select * from " + tableName + " a where a.seq = " + currentSeq + " and a.other_seq = " + otherSeq);
+//				while (resultSet.next()) {
+//					similarity = resultSet.getFloat("similarity");
+//					QUERY_SIMILARITY_MAP.put(similarityPair, similarity);
+//				}
+//				resultSet.close();
+//				st.close();
+//				if (similarity == null) {
+//					similarity = (float) QuerySimilarityFunction.calculateSimilarity(currentSeq, otherSeq);
+//				}
+//			} catch (Exception ex) {
+//				ex.printStackTrace();
+//			}
+//		}
+//		return similarity;
+//	}
 
-	public static SessionInfo findUserSession(long userSessionId) {
-		SessionInfo session = SESSION_INFO_MAP.get(userSessionId);
+	public static SessionInfo findUserSession(long userSessionId, OrderingType orderType) {
+		Map<Long, SessionInfo> sessionInfoMap = SESSION_INFO_ORDER_MAP.get(orderType);
+		if (sessionInfoMap == null) {
+			getAllSessions(orderType);
+			sessionInfoMap = SESSION_INFO_ORDER_MAP.get(orderType);
+			if (sessionInfoMap == null) {
+				throw new IllegalArgumentException("Shouldn't be possible.");
+			}
+		}
+		SessionInfo session = sessionInfoMap.get(userSessionId);
 		if (session == null) {
-			getAllSessions();
-			session = SESSION_INFO_MAP.get(userSessionId);
+			getAllSessions(orderType);
+			session = SESSION_INFO_ORDER_MAP.get(orderType).get(userSessionId);
 			if (session == null) {
 				throw new IllegalArgumentException("Shouldn't be possible");
 			}
@@ -700,7 +777,7 @@ public class DatabaseInteraction {
 		return session;
 	}
 	
-	public static void updateExpectedSeq(String tableName) {
+	public static void updateExpectedSeq(String tableName, OrderingType orderType) {
 		int index = 1;
 		int seqsCount = 1;
 		Long beginTime = System.currentTimeMillis();
@@ -718,7 +795,7 @@ public class DatabaseInteraction {
 			e1.printStackTrace();
 			throw new RuntimeException(e1.getMessage());
 		}
-		Set<SessionInfo> sessions = getAllSessions();
+		Set<SessionInfo> sessions = getAllSessions(orderType);
 		for (SessionInfo session : sessions) {
 			
 			System.out.println(index + "/" + sessions.size());
@@ -800,7 +877,7 @@ public class DatabaseInteraction {
 		}
 	}
 	
-	public static void calculateUnorderedSimilarities() {
+	public static void calculateUnorderedSimilarities(OrderingType orderType) {
 		int index = 1;
 		int seqsCount = 1;
 //		Long beginTime = System.currentTimeMillis();
@@ -809,14 +886,15 @@ public class DatabaseInteraction {
 		double maxTime = 0.0;
 		PreparedStatement preparedStatement = null;
 		boolean previousAutoCommit = false;
+		String addition = "_" + orderType;
 		try {
-			preparedStatement = conn.prepareStatement("insert into QRS_US_SIMILARITY (sess, last_seq, seq_position, other_sess, unordered_similarity) select user_session, last_seq, seq_position, other_user_session, (total_intersect_number / (user_session_tuples + other_tuples - total_intersect_number)) as similarity from ("
+			preparedStatement = conn.prepareStatement("insert into QRS_US_SIMILARITY" + addition + " (sess, last_seq, seq_position, other_sess, unordered_similarity) select user_session, last_seq, seq_position, other_user_session, (total_intersect_number / (user_session_tuples + other_tuples - total_intersect_number)) as similarity from ("
 					+ " select d.user_session, d.last_seq, d.seq_position, d.other_user_session, d.total_intersect_number, d.user_session_tuples, c.tuple_count as other_tuples from ("
 					+ " select a.user_session, a.last_seq, a.other_user_session, a.total_intersect_number, b.last_position as seq_position, b.tuple_count as user_session_tuples from (select sess as user_session, last_seq, other_sess as other_user_session, sum(total_intersect_number) as total_intersect_number "
-					+ " from (select temp.user_session1 as sess, temp.last_seq1 as last_seq, temp.user_session2 as other_sess, sum(count2 - (abs(count2 - count1) + count2 - count1) / 2) as total_intersect_number from (select q1.user_session as user_session1, q1.last_seq as last_seq1, q2.user_session as user_session2, q1.duplicate_count as count1, q2.duplicate_count as count2 from (select user_session, last_seq, table_id, key_id, count(*) as duplicate_count from (select b.user_session as user_session, b.last_seq, a.table_id, a.key_id from QRS_QUERY_TUPLE_numeric a join (select * from QRS_US_SEGMENTED where user_session = ? and last_seq = ?) b on a.seq = b.seq) group by user_session, last_seq, table_id, key_id order by user_session) q1  inner join QRS_US_TUPLE_NUMERIC q2 on q1.table_id = q2.table_id and q1.key_id = q2.key_id where q1.user_session != q2.user_session union (select q3.user_session as sess, q3.last_seq as last_seq, q4.user_session as other_sess, q3.duplicate_count as count1, q4.duplicate_count as count2 from (select user_session, last_seq, table_id, key_id, count(*) as duplicate_count from (select b.user_session as user_session, b.last_seq, a.table_id, a.key_id from QRS_QUERY_TUPLE_string a join (select * from QRS_US_SEGMENTED where user_session = 244 and last_seq = 538446) b on a.seq = b.seq) group by user_session, last_seq, table_id, key_id order by user_session) q3 inner join QRS_US_TUPLE_string q4 on q3.table_id = q4.table_id and q3.key_id = q4.key_id where q3.user_session != q4.user_session)) temp group by temp.user_session1, temp.last_seq1, temp.user_session2 order by temp.last_seq1) group by sess, last_seq, other_sess)"
+					+ " from (select temp.user_session1 as sess, temp.last_seq1 as last_seq, temp.user_session2 as other_sess, sum(count2 - (abs(count2 - count1) + count2 - count1) / 2) as total_intersect_number from (select q1.user_session as user_session1, q1.last_seq as last_seq1, q2.user_session as user_session2, q1.duplicate_count as count1, q2.duplicate_count as count2 from (select user_session, last_seq, table_id, key_id, count(*) as duplicate_count from (select b.user_session as user_session, b.last_seq, a.table_id, a.key_id from QRS_QUERY_TUPLE_numeric a join (select * from QRS_US_SEGMENTED" + addition + " where user_session = ? and last_seq = ?) b on a.seq = b.seq) group by user_session, last_seq, table_id, key_id order by user_session) q1  inner join QRS_US_TUPLE_NUMERIC q2 on q1.table_id = q2.table_id and q1.key_id = q2.key_id where q1.user_session != q2.user_session union (select q3.user_session as sess, q3.last_seq as last_seq, q4.user_session as other_sess, q3.duplicate_count as count1, q4.duplicate_count as count2 from (select user_session, last_seq, table_id, key_id, count(*) as duplicate_count from (select b.user_session as user_session, b.last_seq, a.table_id, a.key_id from QRS_QUERY_TUPLE_string a join (select * from QRS_US_SEGMENTED" + addition + " where user_session = ? and last_seq = ?) b on a.seq = b.seq) group by user_session, last_seq, table_id, key_id order by user_session) q3 inner join QRS_US_TUPLE_string q4 on q3.table_id = q4.table_id and q3.key_id = q4.key_id where q3.user_session != q4.user_session)) temp group by temp.user_session1, temp.last_seq1, temp.user_session2 order by temp.last_seq1) group by sess, last_seq, other_sess)"
 					+ "  a"
-					+ " join (select user_session, last_seq, last_position, sum(tuple_count) as tuple_count from (select user_session, last_seq, last_position, sum(duplicate_count) as tuple_count from (select user_session, last_seq, last_position, table_id, key_id, count(*) as duplicate_count from (select b.user_session as user_session, b.last_seq, b.last_position, a.table_id, a.key_id from QRS_QUERY_TUPLE_numeric a join (select * from QRS_US_SEGMENTED where user_session = ? and last_seq = ?) b on a.seq = b.seq) group by user_session, last_seq, last_position, table_id, key_id order by user_session) group by user_session, last_seq, last_position) group by user_session, last_seq, last_position"
-					+ " union all (select user_session, last_seq, last_position, sum(tuple_count) as tuple_count from (select user_session, last_seq, last_position, sum(duplicate_count) as tuple_count from (select user_session, last_seq, last_position, table_id, key_id, count(*) as duplicate_count from (select b.user_session as user_session, b.last_seq, b.last_position, a.table_id, a.key_id from QRS_QUERY_TUPLE_string a join (select * from QRS_US_SEGMENTED where user_session = ? and last_seq = ?) b on a.seq = b.seq) group by user_session, last_seq, last_position, table_id, key_id order by user_session) group by user_session, last_seq, last_position) group by user_session, last_seq, last_position)"
+					+ " join (select user_session, last_seq, last_position, sum(tuple_count) as tuple_count from (select user_session, last_seq, last_position, sum(duplicate_count) as tuple_count from (select user_session, last_seq, last_position, table_id, key_id, count(*) as duplicate_count from (select b.user_session as user_session, b.last_seq, b.last_position, a.table_id, a.key_id from QRS_QUERY_TUPLE_numeric a join (select * from QRS_US_SEGMENTED" + addition + " where user_session = ? and last_seq = ?) b on a.seq = b.seq) group by user_session, last_seq, last_position, table_id, key_id order by user_session) group by user_session, last_seq, last_position) group by user_session, last_seq, last_position"
+					+ " union all (select user_session, last_seq, last_position, sum(tuple_count) as tuple_count from (select user_session, last_seq, last_position, sum(duplicate_count) as tuple_count from (select user_session, last_seq, last_position, table_id, key_id, count(*) as duplicate_count from (select b.user_session as user_session, b.last_seq, b.last_position, a.table_id, a.key_id from QRS_QUERY_TUPLE_string a join (select * from QRS_US_SEGMENTED" + addition + " where user_session = ? and last_seq = ?) b on a.seq = b.seq) group by user_session, last_seq, last_position, table_id, key_id order by user_session) group by user_session, last_seq, last_position) group by user_session, last_seq, last_position)"
 					+ ") b on a.user_session = b.user_session and a.last_seq = b.last_seq"
 					+ ") d join (select * from QRS_US_TUPLE_COUNT) c on d.other_user_session = c.user_session)");
 			previousAutoCommit = conn.getAutoCommit();
@@ -825,7 +903,7 @@ public class DatabaseInteraction {
 			e1.printStackTrace();
 			throw new RuntimeException(e1.getMessage());
 		}
-		Set<SessionInfo> sessions = getAllSessions();
+		Set<SessionInfo> sessions = getAllSessions(orderType);
 		for (SessionInfo session : sessions) {
 			Long beginLoopTime = System.currentTimeMillis();
 			System.out.println(index + "/" + sessions.size());
@@ -842,13 +920,16 @@ public class DatabaseInteraction {
 					preparedStatement.setLong(4, lastSeq);
 					preparedStatement.setLong(5, sessionId);
 					preparedStatement.setLong(6, lastSeq);
+					preparedStatement.setLong(7, sessionId);
+					preparedStatement.setLong(8, lastSeq);
 					preparedStatement.addBatch();
 					if (seqsCount % 1000 == 0) {
 						System.out.println("Trying to execute batch");
 						preparedStatement.executeBatch();
+						System.out.println("Comitting..");
 						conn.commit();
 						System.err.println("TotalTime: " + totalTime + ", AverageTime: " + averageTime + ", MaxTime: " + maxTime);
-						System.out.println("Committed to: QRS_US_SIMILARITY");
+						System.out.println("Committed to: QRS_US_SIMILARITY" + addition);
 					}
 					seqsCount++;
 				} catch (Exception e) {
@@ -869,7 +950,7 @@ public class DatabaseInteraction {
 			try {
 				preparedStatement.executeBatch();
 				conn.commit();
-				System.out.println("Committed to: QRS_US_SIMILARITY");
+				System.out.println("Committed to: QRS_US_SIMILARITY" + addition);
 			} catch (SQLException e) {
 				e.printStackTrace();
 			}

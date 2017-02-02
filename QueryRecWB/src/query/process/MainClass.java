@@ -9,6 +9,7 @@ import com.beust.jcommander.JCommander;
 import aima.core.util.datastructure.Pair;
 import largespace.business.DatabaseInteraction;
 import largespace.business.OptionsOwn;
+import wb.model.OrderingType;
 
 public class MainClass {
 	private static final MainClass INSTANCE = new MainClass();
@@ -70,14 +71,18 @@ public class MainClass {
 //		System.err.println("Finished segmenting and inserting user sessions in: " 
 //				+ ((System.currentTimeMillis() - beginTime)) / 1000 + " seconds.");
 //		beginTime = System.currentTimeMillis();
-//		DatabaseInteraction.calculateUnorderedSimilarities();
+//		DatabaseInteraction.calculateUnorderedSimilarities(OrderingType.SEQ);
+//		System.err.println("SEQ Done");
+		DatabaseInteraction.calculateUnorderedSimilarities(OrderingType.TIME);
+//		System.err.println("Finished inserting tuples of segmented user sessions in: " 
+//				+ ((System.currentTimeMillis() - beginTime)) / 1000 + " seconds.");
 		
 		//already done
 //		DatabaseInteraction.updateExpectedSeq("QRS_US_SIMILARITY");
 		
-		DatabaseInteraction.updateExpectedSeq("qrs_ussf_unordered");
+//		DatabaseInteraction.updateExpectedSeq("qrs_ussf_unordered");
 //		DatabaseInteraction.updateExpectedSeq("QRS_USSF_FB");
-//		DatabaseInteraction.processUnorderedSimilarity(2);
+//		DatabaseInteraction.processUnorderedSimilarity(2, OrderingType.SEQ);
 		System.err.println("Finished inserting tuples of segmented user sessions in: " 
 				+ ((System.currentTimeMillis() - beginTime)) / 1000 + " seconds.");
 	}
