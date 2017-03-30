@@ -2,6 +2,13 @@ package wb.model;
 
 import java.sql.ResultSet;
 
+import largespace.business.DatabaseInteraction;
+
+/**
+ * This class stores all the needed tuple information for misc. operations in the {@link DatabaseInteraction}.
+ * 
+ * @author Otono Kakuei
+ */
 public class TupleInfo {
 	private Long sequence;
 	private Long tableId;

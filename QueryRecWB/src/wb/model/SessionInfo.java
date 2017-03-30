@@ -4,6 +4,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import largespace.business.DatabaseInteraction;
+
+/**
+ * This class stores all the needed session information for misc. operations in the {@link DatabaseInteraction}.
+ * 
+ * @author Otono Kakuei
+ */
 public class SessionInfo {
 	private long sessionId;
 	private List<Long> orderedSequences = new ArrayList<>();

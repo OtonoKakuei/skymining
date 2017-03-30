@@ -1,12 +1,9 @@
 package query.process;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import com.beust.jcommander.JCommander;
 
-import aima.core.util.datastructure.Pair;
 import largespace.business.DatabaseInteraction;
 import largespace.business.OptionsOwn;
 import wb.model.OrderingType;
@@ -22,7 +19,7 @@ public class MainClass {
 		OptionsOwn opt = new OptionsOwn();
 		QueryRec rec = new QueryRec(opt);
 		new JCommander(opt, args);
-		
+		//uncomment if necessary.
 //		INSTANCE.doQuerySimilarityFunction(opt);
 		INSTANCE.doUserSessionSimilarityFunction(opt);
 		
@@ -43,26 +40,33 @@ public class MainClass {
 		// on preprocessing step we fill this internal database
 
 		case 0:
-			//DO NOT UNCOMMENT PREPROCESS!!
-			//this has been completed already, so let's focus on the other stuff.
+			//pre-processes the sequences that we've stored in the database.
+			//uncomment only the necessary rows.
 //			rec.preprocess(opt);
 //			rec.processProblematicSequences(opt);
 //			rec.exportQueryTupleFrequencyToCSV();
 //			rec.processStrayQueries(opt);
 			break;
 		case 1:
+			//was not used, because this was done with sql
 			rec.recommend(opt);
 			break;
 		case 2:
+			//was not used, because this was done with sql
 			rec.evaluate(opt);
 			break;
 		}
 
 	}
 	
+	/**
+	 * This method was only used to calculate the unordered similarity.
+	 * @param opt db conf
+	 */
 	private void doUserSessionSimilarityFunction(OptionsOwn opt) {
 		DatabaseInteraction.establishConnection(opt);
 		Long beginTime = System.currentTimeMillis();
+		//uncomment rows if necessary.
 		
 //		Set<SessionInfo> sessionInfos = DatabaseInteraction.getAllSessions();
 //		System.err.println("STARTING!!!! after getting sessions" + ((System.currentTimeMillis() - beginTime)) / 1000 + " seconds.");
@@ -87,6 +91,11 @@ public class MainClass {
 				+ ((System.currentTimeMillis() - beginTime)) / 1000 + " seconds.");
 	}
 
+	/**
+	 * Does the query similarity function on all the sequences that can be compared with one another.
+	 * This method is replaced by another method in SQL.
+	 * @param opt db conf
+	 */
 	private void doQuerySimilarityFunction(OptionsOwn opt) {
 		DatabaseInteraction.establishConnection(opt);
 		int i = 1;

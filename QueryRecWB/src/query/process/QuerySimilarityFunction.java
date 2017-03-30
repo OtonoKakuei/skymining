@@ -7,6 +7,11 @@ import largespace.business.DatabaseInteraction;
 import largespace.business.RowInfo;
 import wb.model.TupleInfo;
 
+/**
+ * This class is responsible for performing the Query Similarity Function (QSF)
+ * 
+ * @author Otono Kakuei
+ */
 public class QuerySimilarityFunction {
 	private static final QuerySimilarityFunction INSTANCE = new QuerySimilarityFunction();
 	private static final Map<Long, Set<TupleInfo>> TUPLE_SEQ_MAP = new HashMap<>();

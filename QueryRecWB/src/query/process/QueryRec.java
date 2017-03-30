@@ -37,14 +37,9 @@ public class QueryRec {
 		AccessAreaExtraction extraction = new AccessAreaExtraction();
 
 		try {
-			// FIXME check whether this has to be done several times or not,
-			// because of disconnections, etc.
 			List<RowInfo> relevantRows = DatabaseInteraction.getAllRelevantStatements(opt);
 			System.out.println("Number of relevant rows: " + relevantRows.size());
 			for (RowInfo rowInfo : relevantRows) {
-				// if (rowInfo.seq < 272354) {
-				// continue;
-				// }
 				try {
 					System.out.println("SEQ: " + rowInfo.seq);
 					DatabaseInteraction.establishConnection(opt);
@@ -84,16 +79,11 @@ public class QueryRec {
 		System.out.println("Processing Problematic Sequences");
 		AccessAreaExtraction extraction = new AccessAreaExtraction();
 		try {
-			// FIXME check whether this has to be done several times or not,
-			// because of disconnections, etc.
 			List<RowInfo> relevantRows = DatabaseInteraction.getAllProblematicStatements(opt);
 			System.out.println("Number of relevant rows: " + relevantRows.size());
 
 			for (RowInfo rowInfo : relevantRows) {
 				try {
-//					if (rowInfo.seq != 8667166) {
-//						continue;
-//					}
 					System.out.println("SEQ: " + rowInfo.seq);
 					DatabaseInteraction.establishConnection(opt);
 					AccessArea accessArea = extraction.extractAccessArea(rowInfo.statement);
@@ -128,8 +118,6 @@ public class QueryRec {
 		System.out.println("Processing Stray Queries");
 		AccessAreaExtraction extraction = new AccessAreaExtraction();
 		try {
-			// FIXME check whether this has to be done several times or not,
-			// because of disconnections, etc.
 			Set<RowInfo> relevantRows = DatabaseInteraction.getStrayRowInfos(opt);
 			
 			int relevantRowsSize = relevantRows.size();
@@ -137,13 +125,14 @@ public class QueryRec {
 			int i = 0;
 			for (RowInfo rowInfo : relevantRows) {
 				try {
-//					if (rowInfo.seq != 8667166) {
-//						continue;
-//					}
 					i++;
 					System.out.println("Processing SEQ: " + rowInfo.seq + ", progress: " + i + "/" + relevantRowsSize);
 					DatabaseInteraction.establishConnection(opt);
-					//FIXME check correctness!
+					//There was a problem we found with some tuples.
+					//Some of the tuples didn't return a primary key, so it was impossible to decide whether
+					//they belong to the numeric or string tuple table. Sequences that return such tuples won't be processed, and thus
+					//considered as one of the "stray" sequences.
+					//Which is why this method is used to append a select clause statement of the primary column name.
 					appendSelectPrimaryKeyToRowInfo(rowInfo);
 					AccessArea accessArea = extraction.extractAccessArea(rowInfo.statement);
 					List<FromItem> fi = accessArea.getFrom();
@@ -154,7 +143,6 @@ public class QueryRec {
 					List<Pair<Table, Object>> queryResult = internalDB.sendGetResultFromQuery(rowInfo,
 							(HashMap<String, Table>) tables);
 					// store data to our internal DB
-//					DatabaseInteraction.saveTableToDB(queryResult, rowInfo);
 					System.out.println("Saving to dummy");
 					DatabaseInteraction.saveTableToDB(queryResult, rowInfo);
 
@@ -170,6 +158,11 @@ public class QueryRec {
 		}
 	}
 	
+	/**
+	 * As the name implies. This method appends a select clause statement(s) of the primary column(s) from
+	 * tables mentioned in the "from" clause.  
+	 * @param rowInfo the given {@link RowInfo}
+	 */
 	private void appendSelectPrimaryKeyToRowInfo(RowInfo rowInfo) {
 		if (!rowInfo.statement.contains("*")) {
 			String fromStatement = rowInfo.fromStatement;
@@ -203,6 +196,9 @@ public class QueryRec {
 		}
 	}
 	
+	/**
+	 * Exports the tuple information to CSV in order to plot the data into a graph in excel/spreadsheet.
+	 */
 	public void exportQueryTupleFrequencyToCSV() {
 		String filename = "Test3.csv";
 		DatabaseInteraction.establishConnection(opt);

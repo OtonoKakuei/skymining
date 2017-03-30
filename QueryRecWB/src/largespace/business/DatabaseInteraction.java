@@ -7,7 +7,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -24,10 +23,19 @@ import wb.model.OrderingType;
 import wb.model.SessionInfo;
 import wb.model.TupleInfo;
 
+/**
+ * This class is responsible for all the interactions we do with the database.
+ * Implemented here are (but not only): the core of the query similarity function as well as the session similarity function.
+ * 
+ * @author OtonoKakuei
+ */
 public class DatabaseInteraction {
-	private static final String QRS_US_SIMILARITY = "QRS_US_SIMILARITY";
+	/**
+	 * 
+	 * The following are table names that we use in our code
+	 * Not all of them are included here, some are only used as a local variable
+	 */
 	private static final String QRS_US_SEGMENTED = "QRS_US_SEGMENTED";
-	private static final String QRS_QRS_USER_SESSIONS_PP = "QRS.QRS_USER_SESSIONS_PP";
 	private static final String QRS_SIMILAR_SEQS = "QRS_SIMILAR_SEQS";
 	private static final String QRS_QUERY_SIMILARITY = "QRS_QUERY_SIMILARITY";
 	private static final String QRS_PROCESSED_STRAYS = "QRS_PROCESSED_STRAYS";
@@ -48,34 +56,43 @@ public class DatabaseInteraction {
 		
 	}
 	
+	/**
+	 * Establishes the connection with the database, based on the configuration stored in {@link OptionsOwn}
+	 * @param opt configuration for the DB connection
+	 */
 	public static void establishConnection(OptionsOwn opt) {
 		establishConnection(opt.serverAddress, opt.username, opt.password);
 	}
 	
+	/**
+	 * Establishes a connection with the database
+	 * @param serverAddress address of the servre
+	 * @param username user name
+	 * @param password password
+	 */
 	public static void establishConnection(String serverAddress, String username, String password) {
 		// Establish connection
 		try {
 			Class.forName("oracle.jdbc.driver.OracleDriver");
 		} catch (ClassNotFoundException e) {
-			// e.printStackTrace();
+			e.printStackTrace();
 		}
 		try {
-			// startTime = new Date().getTime();
 			conn = DriverManager.getConnection("jdbc:oracle:thin:@" + serverAddress, username, password);
-			// conn.close();
 			conn.setAutoCommit(false);
 			System.out.println("Connection established");
 
 		} catch (Exception e) {
 			System.err.println("Could not establish Connection");
-			// e.printStackTrace();
+			e.printStackTrace();
 		}
 	}
 
+	/**
+	 * Closes the connection with the database.
+	 */
 	public static void closeConnection() {
 		try {
-			// endTime = new Date().getTime();
-			// System.out.println(endTime-startTime + " milliseconds");
 			conn.close();
 			System.out.println("Connection closed");
 
@@ -84,6 +101,10 @@ public class DatabaseInteraction {
 		}
 	}
 
+	/**
+	 * Returns all the keys from all the existing tables that are stored in the QRS_DB_SCHEMA table
+	 * @return all the keys from all the existing tables that are stored in the QRS_DB_SCHEMA table
+	 */
 	public static HashMap<String, Table> getTablesKeys() {
 		HashMap<String, Table> map = new HashMap<>();
 		try {
@@ -91,7 +112,7 @@ public class DatabaseInteraction {
 			ResultSet rs = null;
 
 			rs = st.executeQuery(
-					"SELECT TABLE_ID, TABLE_NAME,    COLUMN_NAME,    COLUMN_TYPE, ATTRIBUTE_ID, IS_KEY FROM QRS_DB_SCHEMA WHERE IS_KEY = 1");
+					"SELECT TABLE_ID, TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, ATTRIBUTE_ID, IS_KEY FROM QRS_DB_SCHEMA WHERE IS_KEY = 1");
 			while (rs.next()) {
 				Table t = new Table(rs, true);
 
@@ -105,6 +126,12 @@ public class DatabaseInteraction {
 		return map;
 	}
 
+	
+	/**
+	 * Gets all statements that have at least 1 tuple.
+	 * @param opt stores the name of the log table
+	 * @return all statements that have at least 1 tuple.
+	 */
 	public static List<RowInfo> getAllRelevantStatements(OptionsOwn opt) {
 		List<RowInfo> res = new ArrayList<>();
 		try {
@@ -125,6 +152,13 @@ public class DatabaseInteraction {
 		return res;
 	}
 	
+	/**
+	 * A helpful method to extract all the statements from a given table. Will only work if the
+	 * table has the correct columns.
+	 * @param opt stores the name of the log table
+	 * @param tableName name of the given table
+	 * @return all the statements from a given table.
+	 */
 	private List<RowInfo> getAllStatementsFromTable(OptionsOwn opt, String tableName) {
 		List<RowInfo> res = new ArrayList<>();
 		try {
@@ -145,6 +179,12 @@ public class DatabaseInteraction {
 		return res;
 	}
 	
+	/**
+	 * This method extracts and returns the {@link RowInfo} of a given sequence from the log table.
+	 * @param opt stores the name of the log table
+	 * @param seq the given sequence number
+	 * @return the {@link RowInfo} of a given sequence from the log table. 
+	 */
 	public static RowInfo getRowInfo(OptionsOwn opt, long seq) {
 		RowInfo rowInfo = null;
 		try {
@@ -167,6 +207,11 @@ public class DatabaseInteraction {
 		return rowInfo;
 	}
 	
+	/**
+	 * Returns all unique sequences from a given table. The table has to have to the column "SEQ" for this to succeed.
+	 * @param tableName the given table name.
+	 * @return all unique sequences from a given table.
+	 */
 	private List<Long> getAllSequencesFromTable(String tableName) {
 		List<Long> res = new ArrayList<>();
 		try {
@@ -185,6 +230,9 @@ public class DatabaseInteraction {
 		return res;
 	}
 	
+	//The followings are the restricted implementations for the getAllSequencesFromTable()
+	//It is ensured that each methods are only performed on tables with the SEQ column.
+	//Add a new static method if you want to get the sequences from a new table.
 	public static List<Long> getAllComparableSequences() {
 		return INSTANCE.getAllSequencesFromTable(QRS_COMPARABLE_SEQUENCES);
 	}
@@ -197,9 +245,6 @@ public class DatabaseInteraction {
 		return INSTANCE.getAllSequencesFromTable(QRS_QUERY_SIMILARITY);
 	}
 	
-	public static List<RowInfo> getAllProblematicStatements(OptionsOwn opt) {
-		return INSTANCE.getAllStatementsFromTable(opt, QRS_PROBLEMATIC_SEQUENCES);
-	}
 	
 	public static List<Long> getAllStringTupleSequences() {
 		return INSTANCE.getAllSequencesFromTable(QRS_QUERY_TUPLE_STRING);
@@ -209,6 +254,18 @@ public class DatabaseInteraction {
 		return INSTANCE.getAllSequencesFromTable(QRS_QUERY_TUPLE_NUMERIC);
 	}
 	
+	public static List<Long> getAllProblematicSequences() {
+		return INSTANCE.getAllSequencesFromTable(QRS_PROBLEMATIC_SEQUENCES);
+	}
+	
+	//this one's similar to above, with the difference that it gets the RowInfos instead of the sequence numbers
+	public static List<RowInfo> getAllProblematicStatements(OptionsOwn opt) {
+		return INSTANCE.getAllStatementsFromTable(opt, QRS_PROBLEMATIC_SEQUENCES);
+	}
+	/**
+	 * Returns all the unique sequences from all tuples (numeric and string tuples).
+	 * @return all the unique sequences from all tuples (numeric and string tuples).
+	 */
 	public static Set<Long> getAllTupleSequences() {
 		Set<Long> sequences = new HashSet<>();
 		sequences.addAll(getAllNumericTupleSequences());
@@ -216,10 +273,12 @@ public class DatabaseInteraction {
 		return sequences;
 	}
 	
-	public static List<Long> getAllProblematicSequences() {
-		return INSTANCE.getAllSequencesFromTable(QRS_PROBLEMATIC_SEQUENCES);
-	}
 	
+	/**
+	 * Counts the total number of all the tuples from a given sequence number.
+	 * @param seq the given sequence number
+	 * @return the total number of all the tuples from a given sequence number.
+	 */
 	public static int getTupleCount(long seq) {
 		int count = -1;
 		try {
@@ -246,6 +305,10 @@ public class DatabaseInteraction {
 		return count;
 	}
 	
+	/**
+	 * Returns the number of tuples per sequences.
+	 * @return the number of tuples per sequences.
+	 */
 	public static List<Pair<Long, Integer>> getTupleFrequency() {
 		List<Pair<Long, Integer>> frequencyPairs = new ArrayList<>();
 		try {
@@ -270,6 +333,12 @@ public class DatabaseInteraction {
 		return frequencyPairs;
 	}
 	
+	
+	/**
+	 * Extracts the sequence numbers from the list of {@link RowInfo}.
+	 * @param rowInfos the given list of RowInfos.
+	 * @return the sequence numbers from the list of {@link RowInfo}.
+	 */
 	public static Set<Long> transformRowIntoToSequences(Collection<RowInfo> rowInfos) {
 		Set<Long> sequences = new HashSet<>();
 		for (RowInfo rowInfo : rowInfos) {
@@ -278,6 +347,11 @@ public class DatabaseInteraction {
 		return sequences;
 	}
 
+	/**
+	 * Returns all the tuples of the given sequence number.
+	 * @param seq the given sequence number.
+	 * @return all the tuples of the given sequence number.
+	 */
 	public static Set<TupleInfo> getAllTuples(long seq) {
 		Set<TupleInfo> res = new HashSet<>();
 		try {
@@ -304,43 +378,11 @@ public class DatabaseInteraction {
 		return res;
 	}
 	
-//	public static Set<SessionInfo> getAllSessions() {
-//		Set<SessionInfo> res = new HashSet<>();
-//		Map<Long, List<Long>> sessionsMap = new HashMap<>();
-//		try {
-//			Statement st = conn.createStatement();
-//			st.setFetchSize(50000);
-//			ResultSet resultSet = null;
-//			resultSet = st.executeQuery("select usersession, seq, thetime from " + QRS_QRS_USER_SESSIONS_PP + " order by thetime");
-//			while (resultSet.next()) {
-//				long sequence = -1L;
-//				long session = -1L;
-//				try {
-//					sequence = resultSet.getLong("SEQ");
-//					session = resultSet.getLong("USERSESSION");
-//					List<Long> sequences = sessionsMap.get(session);
-//					if (sequences == null) {
-//						sequences = new ArrayList<>();
-//						sessionsMap.put(session, sequences);
-//					}
-//					sequences.add(sequence);
-//				} catch (Exception ex) {
-//					System.out.println("Exception in Getting data, session = " + session + " seq = " + sequence);
-//				}
-//			}
-//			for (Entry<Long, List<Long>> entry : sessionsMap.entrySet()) {
-//				Long sessionId = entry.getKey();
-//				SessionInfo sessionInfo = new SessionInfo(sessionId, entry.getValue());
-//				res.add(sessionInfo);
-//			}
-//			resultSet.close();
-//			st.close();
-//		} catch (Exception ex) {
-//			ex.printStackTrace();
-//		}
-//		return res;
-//	}
-	
+	/**
+	 * Returns all the {@link SessionInfo} according to the way the sequences were ordered.
+	 * @param orderType describes in what order the sequences were executed.
+	 * @return all the {@link SessionInfo} according to the way the sequences were ordered.
+	 */
 	public static Set<SessionInfo> getAllSessions(OrderingType orderType) {
 		INSTANCE.initNewOrderSessionMap(orderType);
 		Map<Long, SessionInfo> sessionInfoMap = SESSION_INFO_ORDER_MAP.get(orderType);
@@ -391,13 +433,23 @@ public class DatabaseInteraction {
 		return res;
 	}
 	
+	/**
+	 * Just a helper method to initialize the session info map that is based on the given {@link OrderingType}
+	 * @param orderType describes in what order the sequences were executed.
+	 */
 	private void initNewOrderSessionMap(OrderingType orderType) {
 		if (SESSION_INFO_ORDER_MAP.get(orderType) == null) {
 			SESSION_INFO_ORDER_MAP.put(orderType, new HashMap<>());
 		}
 	}
 	
+	/**
+	 * Segments the sequences of all the given {@link SessionInfo} and store the sequence and session pairs
+	 * inside QRS_US_SEGMENTED table.
+	 * @param sessions the given {@link SessionInfo}
+	 */
 	public static void segmentAndInsertUserSessions(Set<SessionInfo> sessions) {
+		//comment or delete time variables if you don't need to know those info.
 		int index = 1;
 		int seqsCount = 1;
 		Long beginTime = System.currentTimeMillis();
@@ -461,6 +513,7 @@ public class DatabaseInteraction {
 			}
 			index++;
 		}
+		//pushes the rest of the stuff i
 		if (seqsCount % 1000 != 0) {
 			try {
 				preparedStatement.executeBatch();
@@ -479,27 +532,13 @@ public class DatabaseInteraction {
 		}
 	}
 	
-	public static Map<Pair<Long, Long>, Float> getSimilarOrderedRecommendations(long userSession, long lastSeq) {
-		Map<Pair<Long, Long>, Float> recommendationMap = new HashMap<>();
-		try {
-			Statement st = conn.createStatement();
-			st.setFetchSize(50000);
-			ResultSet resultSet = null;
-			resultSet = st
-					.executeQuery("select other_sess, recommended_ordered_seq, ordered_similarity from " + QRS_US_SIMILARITY 
-							+ " a where a.sess = " + userSession + " and a.last_seq = " + lastSeq);
-			while (resultSet.next()) {
-				recommendationMap.put(new Pair<>(resultSet.getLong("other_sess"), resultSet.getLong("recommended_ordered_seq")),
-						resultSet.getFloat("ordered_similarity"));
-			}
-			resultSet.close();
-			st.close();
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
-		return recommendationMap;
-	}
-	
+	/**
+	 * Finds all sessions that are similar to each segmented sessions. This approach does not consider the order
+	 * of the sequences inside the similar sessions, and thus, all the sequences inside those similar sessions
+	 * will be returned.
+	 * @param bestSessionCount the number (<b>N</b>) of similar sessions that will be returned. Only the <b>N</b> most similar ones are returned.
+	 * @param orderType describes how the sequences inside the session is ordered.
+	 */
 	public static void processUnorderedSimilarity(int bestSessionCount, OrderingType orderType) {
 		String addition = "_" + orderType;
 		long beginTime = System.currentTimeMillis();
@@ -595,8 +634,6 @@ public class DatabaseInteraction {
 			System.out.println(index + "/" + segmentedSessionsSize);
 			List<Pair<Long, Float>> similarSessions = similarityInfoMap.get(segmentedSession);
 			
-//			System.out.println("Before sort: " + Arrays.deepToString(similarSessions.toArray()));
-			
 			Collections.sort(similarSessions, new Comparator<Pair<Long, Float>>() {
 				@Override
 				public int compare(Pair<Long, Float> o1, Pair<Long, Float> o2) {
@@ -604,7 +641,6 @@ public class DatabaseInteraction {
 				}
 			});
 			
-//			System.out.println("After sort: " + Arrays.deepToString(similarSessions.toArray()));
 			List<Pair<Long, Float>> bestSessions = new ArrayList<>();
 			for (Pair<Long, Float> session : similarSessions) {
 				if (session.getSecond() < 1f && bestSessions.size() < bestSessionCount) {
@@ -686,77 +722,13 @@ public class DatabaseInteraction {
 		
 	}
 	
-//	public static Map<Pair<Long, Long>, Float> getSimilarUnorderedRecommendations(long userSession, long lastSeq) {
-//		Map<Pair<Long, Long>, Float> recommendationMap = new HashMap<>();
-//		try {
-//			Statement st = conn.createStatement();
-//			st.setFetchSize(50000);
-//			ResultSet resultSet = null;
-//			resultSet = st
-//					.executeQuery("select other_sess, unordered_similarity from " + QRS_US_SIMILARITY 
-//							+ " a where a.sess = " + userSession + " and a.last_seq = " + lastSeq);
-//			while (resultSet.next()) {
-//				long otherSessionId = resultSet.getLong("other_sess");
-//				float unorderedSimilarity = resultSet.getFloat("unordered_similarity");
-//				
-//				SessionInfo currentSession = findUserSession(userSession);
-//				int lastSeqIndex = currentSession.getOrderedSequences().indexOf(lastSeq);
-//				List<Long> recommendedSequences = new ArrayList<>(findUserSession(otherSessionId).getOrderedSequences());
-//				for (int i = 0; i <= lastSeqIndex; i++) {
-//					Long currentSeq = currentSession.getOrderedSequences().get(i);
-//					for (Iterator<Long> iter = recommendedSequences.iterator(); iter.hasNext();) {
-//						Long seq = iter.next();
-//						//find the first very similar / identical query -> similarity == 1
-//						if (Math.abs(getSimilarity(currentSeq, seq) - 1.f) < 1E-6) {
-//							iter.remove();
-//							break;
-//						}
-//					}
-//				}
-//				
-//				
-//				for (Long seq : recommendedSequences) {
-//					recommendationMap.put(new Pair<>(otherSessionId, seq),
-//							unorderedSimilarity);
-//				}
-//			}
-//			resultSet.close();
-//			st.close();
-//		} catch (Exception ex) {
-//			ex.printStackTrace();
-//		}
-//		return recommendationMap;
-//	}
-	
-	
-	
-//	private static float getSimilarity(long currentSeq, long otherSeq) {
-//		Pair<Long, Long> similarityPair = new Pair<>(currentSeq, otherSeq);
-//		Float similarity = QUERY_SIMILARITY_MAP.get(similarityPair);
-//		if (similarity == null) {
-//			System.out.println("You're kidding me..: " + QUERY_SIMILARITY_MAP.size());
-//			try {
-//				Statement st = conn.createStatement();
-//				st.setFetchSize(50000);
-//				ResultSet resultSet = null;
-//				String tableName = QRS_QUERY_SIMILARITY;
-//				resultSet = st.executeQuery("select * from " + tableName + " a where a.seq = " + currentSeq + " and a.other_seq = " + otherSeq);
-//				while (resultSet.next()) {
-//					similarity = resultSet.getFloat("similarity");
-//					QUERY_SIMILARITY_MAP.put(similarityPair, similarity);
-//				}
-//				resultSet.close();
-//				st.close();
-//				if (similarity == null) {
-//					similarity = (float) QuerySimilarityFunction.calculateSimilarity(currentSeq, otherSeq);
-//				}
-//			} catch (Exception ex) {
-//				ex.printStackTrace();
-//			}
-//		}
-//		return similarity;
-//	}
-
+	/**
+	 * Finds the {@link SessionInfo} based on the given id of the user session, and what order the sequences
+	 * in that user session was executed.
+	 * @param userSessionId the id of the user session
+	 * @param orderType defines how the sequences were ordered in the session
+	 * @return
+	 */
 	public static SessionInfo findUserSession(long userSessionId, OrderingType orderType) {
 		Map<Long, SessionInfo> sessionInfoMap = SESSION_INFO_ORDER_MAP.get(orderType);
 		if (sessionInfoMap == null) {
@@ -777,6 +749,12 @@ public class DatabaseInteraction {
 		return session;
 	}
 	
+	/**
+	 * Sets the expected sequences of each segmented sessions inside a given table.
+	 * It is required that the table contains segmented sessions 
+	 * @param tableName the name of the given table
+	 * @param orderType how the sequences of each segmented sessions were ordered
+	 */
 	public static void updateExpectedSeq(String tableName, OrderingType orderType) {
 		int index = 1;
 		int seqsCount = 1;
@@ -852,6 +830,10 @@ public class DatabaseInteraction {
 		}
 	}
 	
+	/**
+	 * this method is not used anymore because it takes way too long to execute.
+	 */
+	@Deprecated
 	public static void insertSegmentedUserSessionTuples() {
 		try {
 			Statement st = conn.createStatement();
@@ -877,10 +859,14 @@ public class DatabaseInteraction {
 		}
 	}
 	
+	/**
+	 * This method calculates the similarity between segmented sessions and "known sessions (aka full sessions)" without paying attention
+	 * to the order of how the sequences were executed.
+	 * @param orderType the order of how the sequences were executed in the sessions.
+	 */
 	public static void calculateUnorderedSimilarities(OrderingType orderType) {
 		int index = 1;
 		int seqsCount = 1;
-//		Long beginTime = System.currentTimeMillis();
 		double totalTime = 0.0;
 		double averageTime = 0.0;
 		double maxTime = 0.0;
@@ -924,9 +910,7 @@ public class DatabaseInteraction {
 					preparedStatement.setLong(8, lastSeq);
 					preparedStatement.addBatch();
 					if (seqsCount % 1000 == 0) {
-						System.out.println("Trying to execute batch");
 						preparedStatement.executeBatch();
-						System.out.println("Comitting..");
 						conn.commit();
 						System.err.println("TotalTime: " + totalTime + ", AverageTime: " + averageTime + ", MaxTime: " + maxTime);
 						System.out.println("Committed to: QRS_US_SIMILARITY" + addition);
@@ -966,6 +950,13 @@ public class DatabaseInteraction {
 	
 	
 	
+	/**
+	 * Returns sequence ids of sequences that are similar to the given sequence.
+	 * Similar in this case means that the returned sequences have at least one intersecting witness/tuple
+	 * with the witnesses/tuples of the given sequence.
+	 * @param seq the given sequence id
+	 * @return sequence ids of sequences that are similar to the given sequence.
+	 */
 	public static Set<Long> getSimilarSequencesFromTable(Long seq) {
 		Set<Long> similarSequences = new HashSet<>();
 		try {
@@ -984,7 +975,14 @@ public class DatabaseInteraction {
 		}
 		return similarSequences;
 	}
-
+	
+	/**
+	 * Returns sequence ids of sequences that are similar to the given {@link TupleInfo}.
+	 * Similar in this case means that the returned sequences have at least one intersecting witness/tuple
+	 * with the given tuple.
+	 * @param tuple the given {@link TupleInfo}.
+	 * @return Returns sequence ids of sequences that are similar to the given {@link TupleInfo}.
+	 */
 	public static Set<Long> getSimilarSequences(TupleInfo tuple) {
 		Set<Long> similarSequences = new HashSet<>();
 		try {
@@ -1011,6 +1009,14 @@ public class DatabaseInteraction {
 		return similarSequences;
 	}
 
+	/**
+	 * Stores the pre-processed result into their respective tuple tables.
+	 * Ensures that no duplicates are going to be added.
+	 * <i>Has not been optimized with batches and prepared statement.</i>
+	 * @param queryResult the result of the query execution.
+	 * @param ri {@link RowInfo} contains the information of a query inside the query data log table.
+	 * @return true if the tuples are added successfully, false otherwise.
+	 */
 	public static boolean saveTableToDBWithNoDuplicates(List<Pair<Table, Object>> queryResult, RowInfo ri) {
 		Set<Pair<Table, Object>> querySet = new HashSet<>(queryResult);
 		if (querySet.isEmpty()) {
@@ -1053,7 +1059,6 @@ public class DatabaseInteraction {
 			} catch (Exception e) {
 				e.printStackTrace();
 				errorRidden = true;
-				// FIXME should we really break here?
 				break;
 			}
 		}
@@ -1063,10 +1068,24 @@ public class DatabaseInteraction {
 		return errorRidden;
 	}
 	
+	/**
+	 * Stores the result of the pre-processed query into their respective tuple tables.
+	 * @param queryResult the result of the query execution.
+	 * @param ri {@link RowInfo} contains the information of a query inside the query data log table.
+	 * @return true if the tuples are added successfully, false otherwise.
+	 */
 	public static boolean saveTableToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
 		return saveTableToDummyDB(queryResult, ri, "");
 	}
 	
+	/**
+	 * Stores query result in "dummy" tuple tables. The dummy table is basically a table with the same prefix
+	 * as the original table and appended with a "dummy" suffix.
+	 * @param queryResult the result of the query execution.
+	 * @param ri {@link RowInfo} contains the information of a query inside the query data log table.
+	 * @param dummyName the "dummy" suffix that is going to appended to the original tuple table names.
+	 * @return true if the tuples are added successfully, false otherwise.
+	 */
 	public static boolean saveTableToDummyDB(List<Pair<Table, Object>> queryResult, RowInfo ri, String dummyName) {
 		Set<Pair<Table, Object>> querySet = new HashSet<>(queryResult);
 		if (querySet.isEmpty()) {
@@ -1085,7 +1104,7 @@ public class DatabaseInteraction {
 			return false;
 		}
 		boolean errorRidden = false;
-		System.out.println("Hi Executing: " + ri);
+		System.out.println("Executing: " + ri);
 		PreparedStatement preparedStatement = null;
 		boolean previousAutoCommit = false;
 		String tableID = QRS_QUERY_TUPLE_NUMERIC + dummyName;
@@ -1110,8 +1129,6 @@ public class DatabaseInteraction {
 				} else {
 					preparedStatement.setInt(1, table.tableId);
 					preparedStatement.setLong(2, Long.parseLong((String) keyId));
-//					preparedStatement.setInt(3, table.tableId);
-//					preparedStatement.setLong(4, Long.parseLong((String) keyId));
 					preparedStatement.addBatch();
 					if (i % 1000 == 0) {
 						preparedStatement.executeBatch();
@@ -1122,7 +1139,6 @@ public class DatabaseInteraction {
 			} catch (Exception e) {
 				e.printStackTrace();
 				errorRidden = true;
-				// FIXME should we really break here?
 				break;
 			}
 		}
@@ -1165,7 +1181,6 @@ public class DatabaseInteraction {
 				} catch (Exception e) {
 					e.printStackTrace();
 					errorRidden = true;
-					// FIXME should we really break here?
 					break;
 				}
 			}
@@ -1193,6 +1208,10 @@ public class DatabaseInteraction {
 		return errorRidden;
 	}
 	
+	/**
+	 * Stores all the sequences that can be compared.
+	 * "Can be compared" means that they have at least 1 tuple.
+	 */
 	public static void saveComparableSequences() {
 		Statement st;
 		try {
@@ -1217,6 +1236,12 @@ public class DatabaseInteraction {
 		}
 	}
 	
+	/**
+	 * Stores query similarity between the given sequence and other sequences in the map
+	 * @param seq the given sequence
+	 * @param similarityMap contains the other sequences that have a similarity with the given sequence,
+	 * and their similarity rate
+	 */
 	public static void saveQuerySimilarity(Long seq, Map<Long, Double> similarityMap) {
 		PreparedStatement preparedStatement;
 		String query = "insert into " + QRS_QUERY_SIMILARITY + " (seq, other_seq, similarity) values (" + seq + ", ?, ?)";
@@ -1262,6 +1287,11 @@ public class DatabaseInteraction {
 		}
 	}
 	
+	/**
+	 * Stores pairs of similar sequences into QRS_SIMILAR_SEQS table.
+	 * @param seq the given sequence
+	 * @param similarSequences the sequences that are similar to the given sequence
+	 */
 	public static void saveSimilarSequences(Long seq, Set<Long> similarSequences) {
 		PreparedStatement preparedStatement;
 		String query = "insert into " + QRS_SIMILAR_SEQS + " (seq, other_seq) values (" + seq + ", ?)";
@@ -1306,6 +1336,12 @@ public class DatabaseInteraction {
 		}
 	}
 
+	/**
+	 * This method is solely used to fix some of the problematic sequences stored inside QRS_PROBLEMATIC_SEQUENCES
+	 * and store the tuples of the "fixed" sequences into their respective tuple tables.
+	 * @param queryResult tuples of the given {@link RowInfo}
+	 * @param ri the problematic {@link RowInfo}
+	 */
 	public static void saveFixedStatementsToDB(List<Pair<Table, Object>> queryResult, RowInfo ri) {
 		boolean errorRidden = saveTableToDBWithNoDuplicates(queryResult, ri);
 		if (errorRidden) {
@@ -1324,6 +1360,10 @@ public class DatabaseInteraction {
 		}
 	}
 
+	/**
+	 * Stores the sequence of a given problematic {@link RowInfo} into QRS_PROBLEMATIC_SEQUENCES
+ 	 * @param ri the given {@link RowInfo}
+	 */
 	public static void saveProblematicSequencesDB(RowInfo ri) {
 		try {
 			Statement st = conn.createStatement();
@@ -1339,6 +1379,11 @@ public class DatabaseInteraction {
 		}
 	}
 	
+	/**
+	 * Returns all the sequences that have not been processed.
+	 * @param opt configuration for the DB connection
+	 * @return all the sequences that have not been processed.
+	 */
 	public static Set<Long> getStrayQueries(OptionsOwn opt) {
 		Set<Long> result = new HashSet<>();
 		
@@ -1357,6 +1402,11 @@ public class DatabaseInteraction {
 		return result;
 	}
 	
+	/**
+	 * Returns all the {@link RowInfo}s that have not been processed.
+	 * @param opt configuration for the DB connection
+	 * @return all the {@link RowInfo}s that have not been processed.
+	 */
 	public static Set<RowInfo> getStrayRowInfos(OptionsOwn opt) {
 		Set<RowInfo> result = new HashSet<>();
 		
@@ -1375,6 +1425,11 @@ public class DatabaseInteraction {
 		return result;
 	}
 
+	/**
+	 * Returns the column name that works as a unique identifier of a given table.
+	 * @param tableName the given table name
+	 * @return the column name that works as a unique identifier of a given table.
+	 */
 	public static String getPrimaryColumnName(String tableName) {
 		String primaryColumnName = null;
 		try {
@@ -1385,8 +1440,6 @@ public class DatabaseInteraction {
 							+ "and is_key is not null");
 			while (resultSet.next()) {
 				if (primaryColumnName != null) {
-					System.out.println("CurrentColumnNAme: " + primaryColumnName);
-					System.out.println("New: " + resultSet.getString("column_name"));
 					throw new IllegalArgumentException("ResultSet returns more than 1 result! Should not be possible.");
 				}
 				primaryColumnName = resultSet.getString("column_name");
